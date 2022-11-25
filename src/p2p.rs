@@ -1,19 +1,11 @@
 use bytes::{Buf, BytesMut};
-use std::{
-    error::Error,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    str::FromStr,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{error::Error, net::SocketAddr, str::FromStr, time::SystemTime};
 
 use bitcoin::{
     consensus::{deserialize_partial, serialize},
     network::{
-        address, constants,
-        constants::ServiceFlags,
-        message,
+        constants, message,
         message::{NetworkMessage, RawNetworkMessage},
-        message_network::VersionMessage,
     },
 };
 use clap::Parser;
@@ -21,6 +13,8 @@ use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
 };
+
+mod btc;
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -30,35 +24,15 @@ pub struct HandshakeConfig {
 }
 
 pub async fn btc_handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Error>> {
-    let node_socket = SocketAddr::from_str(&config.node_socket).unwrap();
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64;
-
-    let no_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0);
-
-    let btc_version = VersionMessage::new(
-        ServiceFlags::NONE,
-        now,
-        address::Address::new(&node_socket, constants::ServiceFlags::NONE),
-        address::Address::new(&no_address, constants::ServiceFlags::NONE),
-        now as u64,
-        String::from("/Satoshi:23.0.0/"),
-        0,
-    );
-
-    let btc_envelope = RawNetworkMessage {
-        magic: constants::Network::Bitcoin.magic(),
-        payload: NetworkMessage::Version(btc_version),
-    };
-
-    let stream = TcpStream::connect(config.node_socket).await?;
+    let stream = TcpStream::connect(&config.node_socket).await?;
 
     let mut conn = Connection::new(stream, 1024);
 
     let mut event_chain = EventChain::new();
-    conn.write_message(&btc_envelope).await?;
+    let node_socket = SocketAddr::from_str(&config.node_socket).unwrap();
+    let version_message = btc::version_message(&node_socket);
+
+    conn.write_message(&version_message).await?;
 
     event_chain.add(Event::new("VERSION".to_string(), EventDirection::OUT));
     loop {
