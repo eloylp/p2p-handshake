@@ -12,3 +12,8 @@ A CLI tool for making handshakes to p2p nodes
 
 ## How to run the tests
 
+A node from the [list of nodes](https://bitnodes.io/) should be elected. After that, just run:
+
+```bash
+TEST_NODE="<ipaddr:port>" cargo test
+```
