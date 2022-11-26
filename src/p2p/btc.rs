@@ -26,15 +26,13 @@ use tokio::{
 use super::{Event, EventChain, EventDirection, HandshakeConfig};
 
 pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Error>> {
-    
     let mut stream = TcpStream::connect(&config.node_socket).await?;
     let (mut recv_stream, mut write_stream) = stream.split();
 
     let mut frame_reader = FrameReader::new(&mut recv_stream, 1024);
 
     let mut event_chain = EventChain::new();
-    let node_socket = SocketAddr::from_str(&config.node_socket).unwrap();
-    let version_message = version_message(&node_socket);
+    let version_message = version_message(config.node_socket);
 
     write_message(&mut write_stream, &version_message).await?;
     event_chain.add(Event::new("VERSION".to_string(), EventDirection::OUT));
@@ -89,18 +87,19 @@ pub fn verack_message() -> RawNetworkMessage {
     }
 }
 
-pub fn version_message(dest_socket: &SocketAddr) -> RawNetworkMessage {
+pub fn version_message(dest_socket: String) -> RawNetworkMessage {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs() as i64;
 
     let no_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0);
+    let node_socket = SocketAddr::from_str(&dest_socket).unwrap();
 
     let btc_version = VersionMessage::new(
         ServiceFlags::NONE,
         now,
-        address::Address::new(dest_socket, constants::ServiceFlags::NONE),
+        address::Address::new(&node_socket, constants::ServiceFlags::NONE),
         address::Address::new(&no_address, constants::ServiceFlags::NONE),
         now as u64,
         String::from("/Satoshi:23.0.0/"),
