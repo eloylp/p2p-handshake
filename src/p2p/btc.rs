@@ -32,31 +32,11 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Er
     let version_message = version_message(&node_socket);
 
     conn.write_message(&version_message).await?;
-
     event_chain.add(Event::new("VERSION".to_string(), EventDirection::OUT));
+
     loop {
         if let Some(message) = conn.read_message().await? {
-            match message.payload {
-                message::NetworkMessage::Verack => {
-                    let event = Event::new("ACK".to_string(), EventDirection::IN);
-                    event_chain.add(event);
-                    println!("{}", "received ACK!");
-                }
-                message::NetworkMessage::Version(v) => {
-                    let event = Event::new("VERSION".to_string(), EventDirection::IN);
-                    event_chain.add(event);
-                    println!("{} {:?}", "received version!", v);
-
-                    conn.write_message(&verack_message()).await?;
-                    let event = Event::new("ACK".to_string(), EventDirection::OUT);
-                    event_chain.add(event);
-                }
-                _ => {
-                    let event = Event::new("UNKNOWN".to_string(), EventDirection::IN);
-                    event_chain.add(event);
-                    println!("{}, {}", "unknown message", message.cmd());
-                }
-            }
+            handle_message(message, &mut conn, &mut event_chain).await?;
         }
 
         if event_chain.len() == 4 {
@@ -64,6 +44,37 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Er
         }
     }
     return Ok(event_chain);
+}
+
+async fn handle_message(
+    message: RawNetworkMessage,
+    conn: &mut Connection,
+    event_chain: &mut EventChain,
+) -> Result<(), Box<dyn Error>> {
+    match message.payload {
+        message::NetworkMessage::Verack => {
+            let event = Event::new("ACK".to_string(), EventDirection::IN);
+            event_chain.add(event);
+            println!("{}", "received ACK!");
+            Ok(())
+        }
+        message::NetworkMessage::Version(v) => {
+            let event = Event::new("VERSION".to_string(), EventDirection::IN);
+            event_chain.add(event);
+            println!("{} {:?}", "received version!", v);
+
+            conn.write_message(&verack_message()).await?;
+            let event = Event::new("ACK".to_string(), EventDirection::OUT);
+            event_chain.add(event);
+            Ok(())
+        }
+        _ => {
+            let event = Event::new("UNKNOWN".to_string(), EventDirection::IN);
+            event_chain.add(event);
+            println!("{}, {}", "unknown message", message.cmd());
+            Ok(())
+        }
+    }
 }
 
 pub fn verack_message() -> RawNetworkMessage {
