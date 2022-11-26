@@ -1,14 +1,77 @@
 use std::{
+    error::Error,
     net::{IpAddr, Ipv4Addr, SocketAddr},
+    str::FromStr,
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use bitcoin::network::{
-    address,
-    constants::{self, ServiceFlags},
-    message::{NetworkMessage, RawNetworkMessage},
-    message_network::VersionMessage,
+use bitcoin::{
+    consensus::{deserialize_partial, serialize},
+    network::{
+        address,
+        constants::{self, ServiceFlags},
+        message::{self, NetworkMessage, RawNetworkMessage},
+        message_network::VersionMessage,
+    },
 };
+use bytes::{Buf, BytesMut};
+use tokio::{
+    io::{self, AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+};
+
+use super::{Event, EventChain, EventDirection, HandshakeConfig};
+
+pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Error>> {
+    let stream = TcpStream::connect(&config.node_socket).await?;
+
+    let mut conn = Connection::new(stream, 1024);
+
+    let mut event_chain = EventChain::new();
+    let node_socket = SocketAddr::from_str(&config.node_socket).unwrap();
+    let version_message = version_message(&node_socket);
+
+    conn.write_message(&version_message).await?;
+
+    event_chain.add(Event::new("VERSION".to_string(), EventDirection::OUT));
+    loop {
+        if let Some(message) = conn.read_message().await? {
+            match message.payload {
+                message::NetworkMessage::Verack => {
+                    let event = Event::new("ACK".to_string(), EventDirection::IN);
+                    event_chain.add(event);
+                    println!("{}", "received ACK!");
+                }
+                message::NetworkMessage::Version(v) => {
+                    let event = Event::new("VERSION".to_string(), EventDirection::IN);
+                    event_chain.add(event);
+                    println!("{} {:?}", "received version!", v);
+
+                    conn.write_message(&verack_message()).await?;
+                    let event = Event::new("ACK".to_string(), EventDirection::OUT);
+                    event_chain.add(event);
+                }
+                _ => {
+                    let event = Event::new("UNKNOWN".to_string(), EventDirection::IN);
+                    event_chain.add(event);
+                    println!("{}, {}", "unknown message", message.cmd());
+                }
+            }
+        }
+
+        if event_chain.len() == 4 {
+            break;
+        }
+    }
+    return Ok(event_chain);
+}
+
+pub fn verack_message() -> RawNetworkMessage {
+    RawNetworkMessage {
+        magic: constants::Network::Bitcoin.magic(),
+        payload: NetworkMessage::Verack,
+    }
+}
 
 pub fn version_message(dest_socket: &SocketAddr) -> RawNetworkMessage {
     let now = SystemTime::now()
@@ -31,5 +94,43 @@ pub fn version_message(dest_socket: &SocketAddr) -> RawNetworkMessage {
     RawNetworkMessage {
         magic: constants::Network::Bitcoin.magic(),
         payload: NetworkMessage::Version(btc_version),
+    }
+}
+
+struct Connection {
+    stream: TcpStream,
+    buffer: BytesMut,
+}
+
+impl Connection {
+    pub fn new(stream: TcpStream, buff_size: usize) -> Connection {
+        Connection {
+            stream,
+            buffer: BytesMut::with_capacity(buff_size),
+        }
+    }
+
+    pub async fn read_message(&mut self) -> Result<Option<RawNetworkMessage>, Box<dyn Error>> {
+        loop {
+            if let Ok((message, count)) = deserialize_partial::<RawNetworkMessage>(&mut self.buffer)
+            {
+                self.buffer.advance(count);
+                return Ok(Some(message));
+            }
+
+            if 0 == self.stream.read_buf(&mut self.buffer).await? {
+                if self.buffer.is_empty() {
+                    return Ok(None);
+                } else {
+                    return Err("connection reset by peer".into());
+                }
+            }
+        }
+    }
+
+    pub async fn write_message(&mut self, message: &RawNetworkMessage) -> io::Result<()> {
+        let data = serialize(message);
+        self.stream.write_all(data.as_slice()).await?;
+        Ok(())
     }
 }
