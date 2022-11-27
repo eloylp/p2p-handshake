@@ -35,6 +35,7 @@ impl EventChain {
     }
 }
 
+#[derive(Debug)]
 pub struct Event {
     name: String,
     time: SystemTime,
@@ -62,6 +63,8 @@ impl Event {
         &self.direction
     }
 }
+
+#[derive(Debug)]
 pub enum EventDirection {
     IN,
     OUT,

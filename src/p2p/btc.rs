@@ -21,6 +21,8 @@ use tokio::{
         tcp::{ReadHalf, WriteHalf},
         TcpStream,
     },
+    select,
+    sync::mpsc::{self, UnboundedSender},
 };
 
 use super::{Event, EventChain, EventDirection, HandshakeConfig};
@@ -29,51 +31,74 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Er
     let mut stream = TcpStream::connect(&config.node_socket).await?;
     let (mut recv_stream, mut write_stream) = stream.split();
 
+    let (ev_tx, mut ev_rx) = mpsc::unbounded_channel();
+    let event_chain_handle = tokio::spawn(async move {
+        let mut event_chain = EventChain::new();
+        loop {
+            select! {
+                Some(ev) = ev_rx.recv() => {
+                    println!("{:?}", ev);
+                    event_chain.add(ev);
+                }
+            }
+            if event_chain.len() == 4 {
+                break;
+            }
+        }
+
+        event_chain
+    });
+
+    let version_message = version_message(config.node_socket);
+    write_message(&mut write_stream, &version_message).await?;
+
+    ev_tx
+        .send(Event::new("VERSION".to_string(), EventDirection::OUT))
+        .unwrap();
+
     let mut frame_reader = FrameReader::new(&mut recv_stream, 1024);
 
-    let mut event_chain = EventChain::new();
-    let version_message = version_message(config.node_socket);
-
-    write_message(&mut write_stream, &version_message).await?;
-    event_chain.add(Event::new("VERSION".to_string(), EventDirection::OUT));
+    let event_publisher = ev_tx.clone();
 
     loop {
         if let Some(message) = frame_reader.read_message().await? {
-            handle_message(message, &mut write_stream, &mut event_chain).await?;
+            handle_message(message, &mut write_stream, &event_publisher).await?;
         }
 
-        if event_chain.len() == 4 {
+        if event_chain_handle.is_finished() {
             break;
         }
     }
-    return Ok(event_chain);
+
+    let event_chain = event_chain_handle.await?;
+    Ok(event_chain)
 }
 
 async fn handle_message<'a>(
     message: RawNetworkMessage,
     write_stream: &mut WriteHalf<'a>,
-    event_chain: &mut EventChain,
+    event_publisher: &UnboundedSender<Event>,
 ) -> Result<(), Box<dyn Error>> {
     match message.payload {
         message::NetworkMessage::Verack => {
             let event = Event::new("ACK".to_string(), EventDirection::IN);
-            event_chain.add(event);
+            event_publisher.send(event).unwrap();
             println!("{}", "received ACK!");
             Ok(())
         }
         message::NetworkMessage::Version(v) => {
             let event = Event::new("VERSION".to_string(), EventDirection::IN);
-            event_chain.add(event);
+            event_publisher.send(event).unwrap();
             println!("{} {:?}", "received version!", v);
 
             write_message(write_stream, &verack_message()).await?;
             let event = Event::new("ACK".to_string(), EventDirection::OUT);
-            event_chain.add(event);
+            event_publisher.send(event).unwrap();
+            println!("{} {:?}", "sent ACK!", v);
+
             Ok(())
         }
         _ => {
-            let event = Event::new("UNKNOWN".to_string(), EventDirection::IN);
-            event_chain.add(event);
             println!("{}, {}", "unknown message", message.cmd());
             Ok(())
         }
