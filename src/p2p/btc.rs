@@ -21,7 +21,7 @@ use tokio::{
         tcp::{OwnedReadHalf, OwnedWriteHalf},
         TcpStream,
     },
-    select,
+    select, signal,
     sync::{
         broadcast,
         mpsc::{self, error::SendError, UnboundedSender},
@@ -106,6 +106,18 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
     // Start the handshake by sending the first VERSION message
     let version_message = version_message(config.node_socket);
     msg_tx.send(version_message)?;
+
+    // Wait for external shutdown signals ctr+c ...
+    let mut ext_shutdown_shutdown_rx = shutdown_tx.subscribe();
+    select! {
+        val = signal::ctrl_c() => {
+            if val.is_ok(){
+                shutdown_tx.send(1)?;
+            }
+        }
+        // Break this select! once an internal shutdown is invoked from any of the subs systems.
+        _val = ext_shutdown_shutdown_rx.recv()=>{}
+    }
 
     let (event_chain, _, _) = join!(
         event_chain_handle,
