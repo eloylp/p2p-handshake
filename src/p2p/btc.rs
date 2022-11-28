@@ -32,7 +32,7 @@ use super::{Event, EventChain, EventDirection, HandshakeConfig, P2PError};
 
 pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> {
     // Setup shutdown broadcast channels
-    let (shutdown_tx, _) = broadcast::channel(10);
+    let (shutdown_tx, _) = broadcast::channel(1);
 
     // Spawn the event chain task.
     let (ev_tx, mut ev_rx) = mpsc::unbounded_channel();
