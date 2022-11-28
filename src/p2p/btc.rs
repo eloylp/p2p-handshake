@@ -1,5 +1,4 @@
 use std::{
-    error::Error,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     str::FromStr,
     time::{SystemTime, UNIX_EPOCH},
@@ -83,20 +82,34 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
     // Start the handshake by sending the first ACK message
     let version_message = version_message(config.node_socket);
     msg_tx.send(version_message)?;
+    let mut frame_reader_shutdown_rx = shutdown_tx.subscribe();
 
-    let mut frame_reader = FrameReader::new(&mut recv_stream, 1024);
-
-    loop {
-        if let Some(message) = frame_reader.read_message().await? {
-            handle_message(message, msg_tx.clone(), ev_tx.clone()).await?;
+    let frame_reader_handle = tokio::spawn(async move {
+        let mut frame_reader = FrameReader::new(&mut recv_stream, 1024);
+        loop {
+            select! {
+                message_res = frame_reader.read_message() => {
+                    match message_res {
+                        Ok(opt_res) => {
+                            if let Some(msg) = opt_res {
+                                handle_message(msg, msg_tx.clone(), ev_tx.clone()).await?;
+                            }
+                         },
+                        Err(err) => return Err(err),
+                    }
+                },
+                Ok(_) = frame_reader_shutdown_rx.recv() => {
+                    return Ok(())
+                }
+            }
         }
+    });
 
-        if event_chain_handle.is_finished() {
-            break;
-        }
-    }
-
-    let (event_chain, _) = join!(event_chain_handle, write_message_handle);
+    let (event_chain, _, _) = join!(
+        event_chain_handle,
+        write_message_handle,
+        frame_reader_handle
+    );
     return Ok(event_chain.unwrap());
 }
 
