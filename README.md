@@ -10,7 +10,18 @@ A CLI tool for making handshakes to p2p nodes
 
 ## How to use this tool
 
-## How to run the tests
+## Contributing
+
+### Checking the code
+
+The code should be properly formatted and linted. This project makes use of [clippy](https://github.com/rust-lang/rust-clippy) and [cargo fmt](https://github.com/rust-lang/rustfmt) for that.
+In order to enforce our development workflows, one could just configure the following [cargo make](https://github.com/sagiegurari/cargo-make) check as a [pre-commit hook](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks):
+
+```bash
+cargo make --makefile workflow.toml code-check
+```
+
+### How to run the tests
 
 A node from the [list of nodes](https://bitnodes.io/) should be elected. After that, just run:
 
