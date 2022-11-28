@@ -34,7 +34,7 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
     // Setup shutdown broadcast channels
     let (shutdown_tx, _) = broadcast::channel(10);
 
-    // Spawn the event chain task and configure its channels
+    // Spawn the event chain task.
     let (ev_tx, mut ev_rx) = mpsc::unbounded_channel();
     let mut ev_shutdown_rx = shutdown_tx.subscribe();
     let ev_shutdown_tx = shutdown_tx.clone();
@@ -60,7 +60,7 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
     let stream = TcpStream::connect(&config.node_socket).await?;
     let (mut recv_stream, mut write_stream) = stream.into_split();
 
-    // Configure the message writer. This will take care of all messages
+    // Spawn the message writer task. This will take care of serialize all messages write to the socket.
     let (msg_tx, mut msg_rx) = mpsc::unbounded_channel::<RawNetworkMessage>();
     let write_msg_ev_tx = ev_tx.clone();
     let mut write_msg_shutdown_rx = shutdown_tx.subscribe();
@@ -79,11 +79,9 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
         }
     });
 
-    // Start the handshake by sending the first ACK message
-    let version_message = version_message(config.node_socket);
-    msg_tx.send(version_message)?;
+    // Spawn the frame reader task
     let mut frame_reader_shutdown_rx = shutdown_tx.subscribe();
-
+    let frame_reader_msg_tx = msg_tx.clone();
     let frame_reader_handle = tokio::spawn(async move {
         let mut frame_reader = FrameReader::new(&mut recv_stream, 1024);
         loop {
@@ -92,7 +90,7 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
                     match message_res {
                         Ok(opt_res) => {
                             if let Some(msg) = opt_res {
-                                handle_message(msg, msg_tx.clone(), ev_tx.clone()).await?;
+                                handle_message(msg, frame_reader_msg_tx.clone(), ev_tx.clone()).await?;
                             }
                          },
                         Err(err) => return Err(err),
@@ -104,6 +102,10 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
             }
         }
     });
+
+    // Start the handshake by sending the first ACK message
+    let version_message = version_message(config.node_socket);
+    msg_tx.send(version_message)?;
 
     let (event_chain, _, _) = join!(
         event_chain_handle,
