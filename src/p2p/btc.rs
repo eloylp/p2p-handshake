@@ -103,7 +103,7 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
         }
     });
 
-    // Start the handshake by sending the first ACK message
+    // Start the handshake by sending the first VERSION message
     let version_message = version_message(config.node_socket);
     msg_tx.send(version_message)?;
 
