@@ -95,9 +95,9 @@ impl fmt::Display for P2PError {
 }
 
 impl From<SendError<Event>> for P2PError {
-    fn from(send_err: SendError<Event>) -> Self {
+    fn from(err: SendError<Event>) -> Self {
         P2PError {
-            message: send_err.to_string(),
+            message: err.to_string(),
         }
     }
 }
