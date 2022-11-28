@@ -62,7 +62,7 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Er
     let (mut recv_stream, mut write_stream) = stream.into_split();
 
     // Configure the message writer. This will take care of all messages
-    let (msg_tx, mut msg_rx) = mpsc::unbounded_channel();
+    let (msg_tx, mut msg_rx) = mpsc::unbounded_channel::<RawNetworkMessage>();
     let write_msg_ev_tx = ev_tx.clone();
     let mut write_msg_shutdown_rx = shutdown_tx.subscribe();
     let write_message_handle = tokio::spawn(async move {
@@ -185,8 +185,8 @@ impl FrameReader<'_> {
     }
 }
 
-async fn write_message(stream: &mut OwnedWriteHalf, message: &RawNetworkMessage) -> io::Result<()> {
-    let data = serialize(message);
+async fn write_message(stream: &mut OwnedWriteHalf, message: RawNetworkMessage) -> io::Result<()> {
+    let data = serialize(&message);
     stream.write_all(data.as_slice()).await?;
     Ok(())
 }
