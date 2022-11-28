@@ -1,10 +1,11 @@
-use std::{error::Error, time::SystemTime};
+use std::{fmt, time::SystemTime};
 
 use clap::Parser;
+use tokio::sync::mpsc::error::SendError;
 
 mod btc;
 
-pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Error>> {
+pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> {
     btc::handshake(config).await
 }
 
@@ -68,4 +69,31 @@ impl Event {
 pub enum EventDirection {
     IN,
     OUT,
+}
+
+#[derive(Debug)]
+pub struct P2PError {
+    message: String,
+}
+
+impl fmt::Display for P2PError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "P2P error: {}", self.message)
+    }
+}
+
+impl From<SendError<Event>> for P2PError {
+    fn from(send_err: SendError<Event>) -> Self {
+        P2PError {
+            message: send_err.to_string(),
+        }
+    }
+}
+
+impl From<std::io::Error> for P2PError {
+    fn from(err: std::io::Error) -> Self {
+        P2PError {
+            message: err.to_string(),
+        }
+    }
 }

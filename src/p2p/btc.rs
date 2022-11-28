@@ -25,13 +25,13 @@ use tokio::{
     select,
     sync::{
         broadcast,
-        mpsc::{self, UnboundedSender},
+        mpsc::{self, error::SendError, UnboundedSender},
     },
 };
 
-use super::{Event, EventChain, EventDirection, HandshakeConfig};
+use super::{Event, EventChain, EventDirection, HandshakeConfig, P2PError};
 
-pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Error>> {
+pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> {
     // Setup shutdown broadcast channels
     let (shutdown_tx, _) = broadcast::channel(10);
 
@@ -110,7 +110,7 @@ async fn handle_message(
     message: RawNetworkMessage,
     msg_writer: UnboundedSender<RawNetworkMessage>,
     event_publisher: UnboundedSender<Event>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), P2PError> {
     let msg_type = message.cmd().to_string();
     match message.payload {
         message::NetworkMessage::Verack => {
@@ -140,7 +140,7 @@ impl FrameReader<'_> {
             buffer: BytesMut::with_capacity(buff_size),
         }
     }
-    pub async fn read_message(&mut self) -> Result<Option<RawNetworkMessage>, Box<dyn Error>> {
+    pub async fn read_message(&mut self) -> Result<Option<RawNetworkMessage>, P2PError> {
         loop {
             if let Ok((message, count)) = deserialize_partial::<RawNetworkMessage>(&mut self.buffer)
             {
@@ -152,7 +152,9 @@ impl FrameReader<'_> {
                 if self.buffer.is_empty() {
                     return Ok(None);
                 } else {
-                    return Err("connection reset by peer".into());
+                    return Err(P2PError {
+                        message: "connection reset by peer".into(),
+                    });
                 }
             }
         }
@@ -188,5 +190,13 @@ pub fn version_message(dest_socket: String) -> RawNetworkMessage {
     RawNetworkMessage {
         magic: constants::Network::Bitcoin.magic(),
         payload: NetworkMessage::Version(btc_version),
+    }
+}
+
+impl From<SendError<RawNetworkMessage>> for P2PError {
+    fn from(send_err: SendError<RawNetworkMessage>) -> Self {
+        P2PError {
+            message: send_err.to_string(),
+        }
     }
 }
