@@ -149,7 +149,7 @@ struct FrameReader<'a> {
 }
 
 impl FrameReader<'_> {
-    pub fn new<'a>(stream: &'a mut OwnedReadHalf, buff_size: usize) -> FrameReader {
+    pub fn new(stream: &mut OwnedReadHalf, buff_size: usize) -> FrameReader {
         FrameReader {
             stream,
             buffer: BytesMut::with_capacity(buff_size),
