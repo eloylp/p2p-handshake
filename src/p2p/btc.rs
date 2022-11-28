@@ -88,7 +88,7 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Er
 
     loop {
         if let Some(message) = frame_reader.read_message().await? {
-            handle_message(message, &msg_tx, &ev_tx.clone()).await?;
+            handle_message(message, msg_tx.clone(), ev_tx.clone()).await?;
         }
 
         if event_chain_handle.is_finished() {
@@ -102,8 +102,8 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Er
 
 async fn handle_message<'a>(
     message: RawNetworkMessage,
-    msg_writer: &UnboundedSender<RawNetworkMessage>,
-    event_publisher: &UnboundedSender<Event>,
+    msg_writer: UnboundedSender<RawNetworkMessage>,
+    event_publisher: UnboundedSender<Event>,
 ) -> Result<(), Box<dyn Error>> {
     match message.payload {
         message::NetworkMessage::Verack => {
