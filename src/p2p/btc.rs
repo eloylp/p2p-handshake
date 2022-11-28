@@ -16,7 +16,6 @@ use bitcoin::{
 use bytes::{Buf, BytesMut};
 use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt},
-    join,
     net::{
         tcp::{OwnedReadHalf, OwnedWriteHalf},
         TcpStream,
@@ -26,6 +25,7 @@ use tokio::{
         broadcast,
         mpsc::{self, error::SendError, UnboundedSender},
     },
+    try_join,
 };
 
 use super::{Event, EventChain, EventDirection, HandshakeConfig, P2PError};
@@ -127,17 +127,14 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
         _val = ext_shutdown_shutdown_rx.recv()=>{}
     }
 
-    let (event_chain, _, _) = join!(
+    let (event_chain, _, _) = try_join!(
         event_chain_handle,
         write_message_handle,
         frame_reader_handle
-    );
+    )?;
     match event_chain {
-        Ok(ev_chain_result) => match ev_chain_result {
-            Ok(ev_chain) => Ok(ev_chain),
-            Err(err) => Err(err),
-        },
-        Err(err) => Err(P2PError::from(err)),
+        Ok(ev_chain) => Ok(ev_chain),
+        Err(err) => Err(err),
     }
 }
 
