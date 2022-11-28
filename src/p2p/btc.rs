@@ -45,15 +45,17 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
                 Some(ev) = ev_rx.recv() => {
                     event_chain.add(ev);
                 }
-                Ok(_) = ev_shutdown_rx.recv() => {
-                    break;
+                recv_res = ev_shutdown_rx.recv() => {
+                    return match recv_res {
+                        Ok(_) => Ok(event_chain),
+                        Err(err) => Err(P2PError::from(err)),
+                    }
                 }
             }
             if event_chain.len() == 4 {
-                ev_shutdown_tx.send(1).unwrap();
+                ev_shutdown_tx.send(1)?;
             }
         }
-        event_chain
     });
 
     // Stablish TCP connection
@@ -69,11 +71,14 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
             select! {
                 Some(msg) = msg_rx.recv() => {
                     let msg_type = msg.cmd().to_string();
-                    write_message(&mut write_stream, msg).await.unwrap();
-                    write_msg_ev_tx.send(Event::new(msg_type, EventDirection::OUT)).unwrap();
+                    write_message(&mut write_stream, msg).await?;
+                    write_msg_ev_tx.send(Event::new(msg_type, EventDirection::OUT))?;
                 }
-                Ok(_) = write_msg_shutdown_rx.recv() => {
-                    break;
+                result = write_msg_shutdown_rx.recv() => {
+                    return match result {
+                        Ok(_) => Ok(()),
+                        Err(err) => Err(P2PError::from(err)),
+                    }
                 }
             }
         }
@@ -96,8 +101,11 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
                         Err(err) => return Err(err),
                     }
                 },
-                Ok(_) = frame_reader_shutdown_rx.recv() => {
-                    return Ok(())
+                result = frame_reader_shutdown_rx.recv() => {
+                   return match result {
+                     Ok(_) => Ok(()),
+                     Err(err) => Err(P2PError::from(err)),
+                    }
                 }
             }
         }
@@ -124,7 +132,13 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
         write_message_handle,
         frame_reader_handle
     );
-    Ok(event_chain.unwrap())
+    match event_chain {
+        Ok(ev_chain_result) => match ev_chain_result {
+            Ok(ev_chain) => Ok(ev_chain),
+            Err(err) => Err(err),
+        },
+        Err(err) => Err(P2PError::from(err)),
+    }
 }
 
 async fn write_message(stream: &mut OwnedWriteHalf, message: RawNetworkMessage) -> io::Result<()> {
