@@ -11,27 +11,27 @@ async fn it_makes_btc_handshake() {
 
     assert!(ev_chain.len() == 4);
 
-    assert!(ev_chain.get(0).unwrap().name() == "VERSION");
+    assert!(ev_chain.get(0).unwrap().name() == "version");
     assert!(matches!(
         ev_chain.get(0).unwrap().direction(),
         EventDirection::OUT
     ));
 
-    assert!(ev_chain.get(1).unwrap().name() == "VERSION");
+    assert!(ev_chain.get(1).unwrap().name() == "version");
     assert!(matches!(
         ev_chain.get(1).unwrap().direction(),
         EventDirection::IN
     ));
 
-    assert!(ev_chain.get(2).unwrap().name() == "ACK");
+    assert!(ev_chain.get(2).unwrap().name() == "verack");
     assert!(matches!(
         ev_chain.get(2).unwrap().direction(),
-        EventDirection::OUT
+        EventDirection::IN
     ));
 
-    assert!(ev_chain.get(3).unwrap().name() == "ACK");
+    assert!(ev_chain.get(3).unwrap().name() == "verack");
     assert!(matches!(
         ev_chain.get(3).unwrap().direction(),
-        EventDirection::IN
+        EventDirection::OUT
     ));
 }

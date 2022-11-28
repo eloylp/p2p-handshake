@@ -17,21 +17,28 @@ use bitcoin::{
 use bytes::{Buf, BytesMut};
 use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt},
+    join,
     net::{
-        tcp::{ReadHalf, WriteHalf},
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
         TcpStream,
     },
     select,
-    sync::mpsc::{self, UnboundedSender},
+    sync::{
+        broadcast,
+        mpsc::{self, UnboundedSender},
+    },
 };
 
 use super::{Event, EventChain, EventDirection, HandshakeConfig};
 
 pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Error>> {
-    let mut stream = TcpStream::connect(&config.node_socket).await?;
-    let (mut recv_stream, mut write_stream) = stream.split();
+    // Setup shutdown broadcast channels
+    let (shutdown_tx, _) = broadcast::channel(10);
 
+    // Spawn the event chain task and configure its channels
     let (ev_tx, mut ev_rx) = mpsc::unbounded_channel();
+    let mut ev_shutdown_rx = shutdown_tx.subscribe();
+    let ev_shutdown_tx = shutdown_tx.clone();
     let event_chain_handle = tokio::spawn(async move {
         let mut event_chain = EventChain::new();
         loop {
@@ -40,29 +47,48 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Er
                     println!("{:?}", ev);
                     event_chain.add(ev);
                 }
+                Ok(_) = ev_shutdown_rx.recv() => {
+                    break;
+                }
             }
             if event_chain.len() == 4 {
-                break;
+                ev_shutdown_tx.send(1).unwrap();
             }
         }
-
         event_chain
     });
 
-    let version_message = version_message(config.node_socket);
-    write_message(&mut write_stream, &version_message).await?;
+    // Stablish TCP connection
+    let stream = TcpStream::connect(&config.node_socket).await?;
+    let (mut recv_stream, mut write_stream) = stream.into_split();
 
-    ev_tx
-        .send(Event::new("VERSION".to_string(), EventDirection::OUT))
-        .unwrap();
+    // Configure the message writer. This will take care of all messages
+    let (msg_tx, mut msg_rx) = mpsc::unbounded_channel();
+    let write_msg_ev_tx = ev_tx.clone();
+    let mut write_msg_shutdown_rx = shutdown_tx.subscribe();
+    let write_message_handle = tokio::spawn(async move {
+        loop {
+            select! {
+                Some(msg) = msg_rx.recv() => {
+                    write_message(&mut write_stream, &msg).await.unwrap();
+                    write_msg_ev_tx.send(Event::new(msg.cmd().to_string(), EventDirection::OUT)).unwrap();
+                }
+                Ok(_) = write_msg_shutdown_rx.recv() => {
+                    break;
+                }
+            }
+        }
+    });
+
+    // Start the handshake by sending the first ACK message
+    let version_message = version_message(config.node_socket);
+    msg_tx.send(version_message)?;
 
     let mut frame_reader = FrameReader::new(&mut recv_stream, 1024);
 
-    let event_publisher = ev_tx.clone();
-
     loop {
         if let Some(message) = frame_reader.read_message().await? {
-            handle_message(message, &mut write_stream, &event_publisher).await?;
+            handle_message(message, &msg_tx, &ev_tx.clone()).await?;
         }
 
         if event_chain_handle.is_finished() {
@@ -70,32 +96,28 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Er
         }
     }
 
-    let event_chain = event_chain_handle.await?;
-    Ok(event_chain)
+    let (event_chain, _) = join!(event_chain_handle, write_message_handle);
+    return Ok(event_chain.unwrap());
 }
 
 async fn handle_message<'a>(
     message: RawNetworkMessage,
-    write_stream: &mut WriteHalf<'a>,
+    msg_writer: &UnboundedSender<RawNetworkMessage>,
     event_publisher: &UnboundedSender<Event>,
 ) -> Result<(), Box<dyn Error>> {
     match message.payload {
         message::NetworkMessage::Verack => {
-            let event = Event::new("ACK".to_string(), EventDirection::IN);
-            event_publisher.send(event).unwrap();
+            let event = Event::new("verack".to_string(), EventDirection::IN);
+            event_publisher.send(event)?;
             println!("{}", "received ACK!");
             Ok(())
         }
         message::NetworkMessage::Version(v) => {
-            let event = Event::new("VERSION".to_string(), EventDirection::IN);
-            event_publisher.send(event).unwrap();
+            let event = Event::new("version".to_string(), EventDirection::IN);
+            event_publisher.send(event)?;
             println!("{} {:?}", "received version!", v);
-
-            write_message(write_stream, &verack_message()).await?;
-            let event = Event::new("ACK".to_string(), EventDirection::OUT);
-            event_publisher.send(event).unwrap();
+            msg_writer.send(verack_message())?;
             println!("{} {:?}", "sent ACK!", v);
-
             Ok(())
         }
         _ => {
@@ -138,12 +160,12 @@ pub fn version_message(dest_socket: String) -> RawNetworkMessage {
 }
 
 struct FrameReader<'a> {
-    stream: &'a mut ReadHalf<'a>,
+    stream: &'a mut OwnedReadHalf,
     buffer: BytesMut,
 }
 
 impl FrameReader<'_> {
-    pub fn new<'a>(stream: &'a mut ReadHalf<'a>, buff_size: usize) -> FrameReader {
+    pub fn new<'a>(stream: &'a mut OwnedReadHalf, buff_size: usize) -> FrameReader {
         FrameReader {
             stream,
             buffer: BytesMut::with_capacity(buff_size),
@@ -168,10 +190,7 @@ impl FrameReader<'_> {
     }
 }
 
-async fn write_message<'a>(
-    stream: &mut WriteHalf<'a>,
-    message: &RawNetworkMessage,
-) -> io::Result<()> {
+async fn write_message(stream: &mut OwnedWriteHalf, message: &RawNetworkMessage) -> io::Result<()> {
     let data = serialize(message);
     stream.write_all(data.as_slice()).await?;
     Ok(())
