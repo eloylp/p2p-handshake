@@ -24,6 +24,7 @@ impl EventChain {
     pub fn new() -> Self {
         EventChain { events: Vec::new() }
     }
+
     pub fn add(&mut self, event: Event) {
         self.events.push(event);
     }
@@ -31,8 +32,19 @@ impl EventChain {
     pub fn len(&self) -> usize {
         self.events.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.events.len() == 0
+    }
+
     pub fn get(&self, n: usize) -> Option<&Event> {
         self.events.get(n)
+    }
+}
+
+impl Default for EventChain {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -46,8 +58,8 @@ pub struct Event {
 impl Event {
     fn new(name: String, direction: EventDirection) -> Event {
         Event {
-            name: name,
-            direction: direction,
+            name,
+            direction,
             time: SystemTime::now(),
         }
     }

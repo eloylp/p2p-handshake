@@ -112,7 +112,7 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
         write_message_handle,
         frame_reader_handle
     );
-    return Ok(event_chain.unwrap());
+    Ok(event_chain.unwrap())
 }
 
 async fn write_message(stream: &mut OwnedWriteHalf, message: RawNetworkMessage) -> io::Result<()> {
@@ -133,7 +133,7 @@ async fn handle_message(
             event_publisher.send(event)?;
             Ok(())
         }
-        message::NetworkMessage::Version(v) => {
+        message::NetworkMessage::Version(_v) => {
             let event = Event::new(msg_type, EventDirection::IN);
             event_publisher.send(event)?;
             msg_writer.send(verack_message())?;
