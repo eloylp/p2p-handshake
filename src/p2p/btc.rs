@@ -157,8 +157,7 @@ impl FrameReader<'_> {
     }
     pub async fn read_message(&mut self) -> Result<Option<RawNetworkMessage>, P2PError> {
         loop {
-            if let Ok((message, count)) = deserialize_partial::<RawNetworkMessage>(&mut self.buffer)
-            {
+            if let Ok((message, count)) = deserialize_partial::<RawNetworkMessage>(&self.buffer) {
                 self.buffer.advance(count);
                 return Ok(Some(message));
             }
