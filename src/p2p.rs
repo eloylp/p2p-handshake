@@ -1,7 +1,9 @@
 use std::{fmt, time::SystemTime};
 
 use clap::Parser;
-use tokio::sync::mpsc::error::SendError;
+use tokio::{
+    sync::{broadcast::error::RecvError, mpsc::error::SendError}
+};
 
 mod btc;
 
@@ -105,6 +107,22 @@ impl From<SendError<Event>> for P2PError {
 
 impl From<std::io::Error> for P2PError {
     fn from(err: std::io::Error) -> Self {
+        P2PError {
+            message: err.to_string(),
+        }
+    }
+}
+
+impl From<SendError<usize>> for P2PError {
+    fn from(err: SendError<usize>) -> Self {
+        P2PError {
+            message: err.to_string(),
+        }
+    }
+}
+
+impl From<RecvError> for P2PError {
+    fn from(err: RecvError) -> Self {
         P2PError {
             message: err.to_string(),
         }
