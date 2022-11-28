@@ -44,7 +44,6 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Er
         loop {
             select! {
                 Some(ev) = ev_rx.recv() => {
-                    println!("{:?}", ev);
                     event_chain.add(ev);
                 }
                 Ok(_) = ev_shutdown_rx.recv() => {
@@ -109,21 +108,15 @@ async fn handle_message<'a>(
         message::NetworkMessage::Verack => {
             let event = Event::new("verack".to_string(), EventDirection::IN);
             event_publisher.send(event)?;
-            println!("{}", "received ACK!");
             Ok(())
         }
         message::NetworkMessage::Version(v) => {
             let event = Event::new("version".to_string(), EventDirection::IN);
             event_publisher.send(event)?;
-            println!("{} {:?}", "received version!", v);
             msg_writer.send(verack_message())?;
-            println!("{} {:?}", "sent ACK!", v);
             Ok(())
         }
-        _ => {
-            println!("{}, {}", "unknown message", message.cmd());
-            Ok(())
-        }
+        _ => Ok(()),
     }
 }
 
