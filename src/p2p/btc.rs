@@ -106,7 +106,7 @@ async fn write_message(stream: &mut OwnedWriteHalf, message: RawNetworkMessage) 
     Ok(())
 }
 
-async fn handle_message<'a>(
+async fn handle_message(
     message: RawNetworkMessage,
     msg_writer: UnboundedSender<RawNetworkMessage>,
     event_publisher: UnboundedSender<Event>,
