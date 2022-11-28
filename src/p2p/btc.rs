@@ -69,8 +69,9 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Er
         loop {
             select! {
                 Some(msg) = msg_rx.recv() => {
-                    write_message(&mut write_stream, &msg).await.unwrap();
-                    write_msg_ev_tx.send(Event::new(msg.cmd().to_string(), EventDirection::OUT)).unwrap();
+                    let msg_type = msg.cmd().to_string();
+                    write_message(&mut write_stream, msg).await.unwrap();
+                    write_msg_ev_tx.send(Event::new(msg_type, EventDirection::OUT)).unwrap();
                 }
                 Ok(_) = write_msg_shutdown_rx.recv() => {
                     break;
@@ -104,14 +105,15 @@ async fn handle_message<'a>(
     msg_writer: UnboundedSender<RawNetworkMessage>,
     event_publisher: UnboundedSender<Event>,
 ) -> Result<(), Box<dyn Error>> {
+    let msg_type = message.cmd().to_string();
     match message.payload {
         message::NetworkMessage::Verack => {
-            let event = Event::new("verack".to_string(), EventDirection::IN);
+            let event = Event::new(msg_type, EventDirection::IN);
             event_publisher.send(event)?;
             Ok(())
         }
         message::NetworkMessage::Version(v) => {
-            let event = Event::new("version".to_string(), EventDirection::IN);
+            let event = Event::new(msg_type, EventDirection::IN);
             event_publisher.send(event)?;
             msg_writer.send(verack_message())?;
             Ok(())
