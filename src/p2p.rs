@@ -109,3 +109,11 @@ impl From<std::io::Error> for P2PError {
         }
     }
 }
+
+impl From<tokio::sync::broadcast::error::SendError<usize>> for P2PError {
+    fn from(err: tokio::sync::broadcast::error::SendError<usize>) -> Self {
+        P2PError {
+            message: err.to_string(),
+        }
+    }
+}
