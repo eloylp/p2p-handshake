@@ -100,6 +100,12 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, Box<dyn Er
     return Ok(event_chain.unwrap());
 }
 
+async fn write_message(stream: &mut OwnedWriteHalf, message: RawNetworkMessage) -> io::Result<()> {
+    let data = serialize(&message);
+    stream.write_all(data.as_slice()).await?;
+    Ok(())
+}
+
 async fn handle_message<'a>(
     message: RawNetworkMessage,
     msg_writer: UnboundedSender<RawNetworkMessage>,
@@ -119,38 +125,6 @@ async fn handle_message<'a>(
             Ok(())
         }
         _ => Ok(()),
-    }
-}
-
-pub fn verack_message() -> RawNetworkMessage {
-    RawNetworkMessage {
-        magic: constants::Network::Bitcoin.magic(),
-        payload: NetworkMessage::Verack,
-    }
-}
-
-pub fn version_message(dest_socket: String) -> RawNetworkMessage {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64;
-
-    let no_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0);
-    let node_socket = SocketAddr::from_str(&dest_socket).unwrap();
-
-    let btc_version = VersionMessage::new(
-        ServiceFlags::NONE,
-        now,
-        address::Address::new(&node_socket, constants::ServiceFlags::NONE),
-        address::Address::new(&no_address, constants::ServiceFlags::NONE),
-        now as u64,
-        String::from("/Satoshi:23.0.0/"),
-        0,
-    );
-
-    RawNetworkMessage {
-        magic: constants::Network::Bitcoin.magic(),
-        payload: NetworkMessage::Version(btc_version),
     }
 }
 
@@ -185,8 +159,34 @@ impl FrameReader<'_> {
     }
 }
 
-async fn write_message(stream: &mut OwnedWriteHalf, message: RawNetworkMessage) -> io::Result<()> {
-    let data = serialize(&message);
-    stream.write_all(data.as_slice()).await?;
-    Ok(())
+pub fn verack_message() -> RawNetworkMessage {
+    RawNetworkMessage {
+        magic: constants::Network::Bitcoin.magic(),
+        payload: NetworkMessage::Verack,
+    }
+}
+
+pub fn version_message(dest_socket: String) -> RawNetworkMessage {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+
+    let no_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0);
+    let node_socket = SocketAddr::from_str(&dest_socket).unwrap();
+
+    let btc_version = VersionMessage::new(
+        ServiceFlags::NONE,
+        now,
+        address::Address::new(&node_socket, constants::ServiceFlags::NONE),
+        address::Address::new(&no_address, constants::ServiceFlags::NONE),
+        now as u64,
+        String::from("/Satoshi:23.0.0/"),
+        0,
+    );
+
+    RawNetworkMessage {
+        magic: constants::Network::Bitcoin.magic(),
+        payload: NetworkMessage::Version(btc_version),
+    }
 }
