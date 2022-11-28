@@ -16,6 +16,7 @@ pub struct HandshakeConfig {
     pub node_socket: String,
 }
 
+#[derive(Debug)]
 pub struct EventChain {
     events: Vec<Event>,
 }
