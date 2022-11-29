@@ -10,24 +10,21 @@ use tokio::{
 mod btc;
 
 pub async fn handshake(config: HandshakeConfig) -> Result<Vec<EventChain>, P2PError> {
-    match &config.commands {
-        Commands::Btc { nodes_addrs } => {
-            let join_handles: Vec<JoinHandle<Result<EventChain, P2PError>>> = nodes_addrs
-                .iter()
-                .map(|node_addr| {
-                    let config = btc::Config {
-                        node_addr: node_addr.to_owned(),
-                    };
-                    tokio::spawn(btc::handshake(config))
-                })
-                .collect();
+    let join_handles: Vec<JoinHandle<Result<EventChain, P2PError>>> = match &config.commands {
+        Commands::Btc { nodes_addrs } => nodes_addrs
+            .iter()
+            .map(|node_addr| {
+                let config = btc::Config {
+                    node_addr: node_addr.to_owned(),
+                };
+                tokio::spawn(btc::handshake(config))
+            })
+            .collect(),
+    };
 
-            let results = try_join_all(join_handles).await?;
-            let event_chains = results.into_iter().collect::<Result<Vec<_>, _>>()?;
-
-            Ok(event_chains)
-        }
-    }
+    let results = try_join_all(join_handles).await?;
+    let event_chains = results.into_iter().collect::<Result<Vec<_>, _>>()?;
+    Ok(event_chains)
 }
 
 #[derive(Parser, Debug)]
