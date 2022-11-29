@@ -95,19 +95,23 @@ pub async fn handshake(
     let frame_reader_msg_tx = msg_tx.clone();
     let frame_reader_handle = tokio::spawn(async move {
         let mut frame_reader = FrameReader::new(&mut recv_stream, 1024);
+        let mut handles = Vec::new();
         loop {
             select! {
                 message_res = frame_reader.read_message() => {
                     match message_res {
                         Ok(opt_res) => {
                             if let Some(msg) = opt_res {
-                                handle_message(msg, frame_reader_msg_tx.clone(), ev_tx.clone()).await?;
+                                let handle = tokio::spawn(handle_message(msg, frame_reader_msg_tx.clone(), ev_tx.clone()));
+                                handles.push(handle);
                             }
                          },
                         Err(err) => return Err(err),
                     }
                 },
                 result = frame_reader_shutdown_rx.recv() => {
+                   // Ensure all message handles succeeded before ending.
+                   futures::future::try_join_all(handles).await?;
                    return match result {
                      Ok(_) => Ok(()),
                      Err(err) => Err(P2PError::from(err)),
