@@ -63,7 +63,7 @@ pub async fn handshake(
 
     // Stablish TCP connection
     let stream = TcpStream::connect(&config.node_addr).await?;
-    let (mut recv_stream, mut write_stream) = stream.into_split();
+    let (recv_stream, mut write_stream) = stream.into_split();
 
     // Spawn the message writer task. This will take care of serialize all messages write to the socket.
     let (msg_tx, mut msg_rx) = mpsc::unbounded_channel::<RawNetworkMessage>();
@@ -92,7 +92,7 @@ pub async fn handshake(
     let mut frame_reader_shutdown_rx = shutdown_tx.subscribe();
     let frame_reader_msg_tx = msg_tx.clone();
     let frame_reader_handle = tokio::spawn(async move {
-        let mut frame_reader = FrameReader::new(&mut recv_stream, 1024);
+        let mut frame_reader = FrameReader::new(recv_stream, 1024);
         let mut handles = Vec::new();
         loop {
             select! {
@@ -163,13 +163,13 @@ async fn handle_message(
     }
 }
 
-struct FrameReader<'a> {
-    stream: &'a mut OwnedReadHalf,
+struct FrameReader {
+    stream: OwnedReadHalf,
     buffer: BytesMut,
 }
 
-impl FrameReader<'_> {
-    pub fn new(stream: &mut OwnedReadHalf, buff_size: usize) -> FrameReader {
+impl FrameReader {
+    pub fn new(stream: OwnedReadHalf, buff_size: usize) -> FrameReader {
         FrameReader {
             stream,
             buffer: BytesMut::with_capacity(buff_size),
