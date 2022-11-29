@@ -30,6 +30,7 @@ use super::{Event, EventChain, EventDirection, P2PError};
 pub struct Config {
     pub node_addr: String,
     pub timeout: u64,
+    pub user_agent: String,
 }
 
 const EXPECTED_HANDSHAKE_MESSAGES: usize = 4;
@@ -125,7 +126,7 @@ pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
     });
 
     // Start the handshake by sending the first VERSION message
-    let version_message = version_message(config.node_addr);
+    let version_message = version_message(config.node_addr, config.user_agent);
     msg_tx.send(version_message)?;
 
     // Wait for external shutdown signals ctr+c ...
@@ -222,7 +223,7 @@ pub fn verack_message() -> RawNetworkMessage {
     }
 }
 
-pub fn version_message(dest_socket: String) -> RawNetworkMessage {
+pub fn version_message(dest_socket: String, user_agent: String) -> RawNetworkMessage {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -237,7 +238,7 @@ pub fn version_message(dest_socket: String) -> RawNetworkMessage {
         address::Address::new(&node_socket, constants::ServiceFlags::NONE),
         address::Address::new(&no_address, constants::ServiceFlags::NONE),
         now as u64,
-        String::from("/Satoshi:23.0.0/"),
+        user_agent,
         0,
     );
 

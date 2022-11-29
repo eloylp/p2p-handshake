@@ -12,7 +12,10 @@ async fn it_makes_btc_handshake() {
 
     let args = HandshakeConfig {
         timeout: 500,
-        commands: Commands::Btc { nodes_addrs },
+        commands: Commands::Btc {
+            nodes_addrs,
+            user_agent: "/Satoshi:23.0.0/".to_string(),
+        },
     };
     let ev_chains = handshake(args).await.unwrap();
     ev_chains.iter().for_each(assert_handshake);

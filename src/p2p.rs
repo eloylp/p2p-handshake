@@ -11,12 +11,13 @@ mod btc;
 
 pub async fn handshake(config: HandshakeConfig) -> Result<Vec<EventChain>, P2PError> {
     let join_handles: Vec<JoinHandle<Result<EventChain, P2PError>>> = match &config.commands {
-        Commands::Btc { nodes_addrs } => nodes_addrs
+        Commands::Btc { nodes_addrs, user_agent } => nodes_addrs
             .iter()
             .map(|node_addr| {
                 let config = btc::Config {
                     node_addr: node_addr.to_owned(),
                     timeout: config.timeout.to_owned(),
+                    user_agent: user_agent.to_owned()
                 };
                 tokio::spawn(btc::handshake(config))
             })
@@ -44,7 +45,16 @@ pub struct HandshakeConfig {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    Btc { nodes_addrs: Vec<String> },
+    Btc {
+        nodes_addrs: Vec<String>,
+        #[arg(
+            long,
+            short,
+            help = "the user agent to be used during handshake operation",
+            default_value = "/Satoshi:23.0.0/"
+        )]
+        user_agent: String,
+    },
 }
 
 #[derive(Debug)]
