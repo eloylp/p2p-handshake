@@ -54,7 +54,7 @@ pub struct HandshakeConfig {
     #[arg(
         long,
         short,
-        default_value_t = 1500,
+        default_value_t = 500,
         help = "maximum per handshake operation time in ms"
     )]
     pub timeout: u64,
