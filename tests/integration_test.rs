@@ -6,6 +6,7 @@ use p2p_handshake::p2p::{handshake, Commands, EventDirection, HandshakeConfig};
 async fn it_makes_btc_handshake() {
     let nodes_addrs = vec![env::var("TEST_NODE").unwrap()];
     let args = HandshakeConfig {
+        timeout: 200,
         commands: Commands::Btc { nodes_addrs },
     };
     let ev_chains = handshake(args).await.unwrap();

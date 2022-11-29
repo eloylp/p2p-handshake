@@ -23,6 +23,7 @@ pub async fn handshake(config: HandshakeConfig) -> Result<Vec<EventChain>, P2PEr
             .map(|node_addr| {
                 let config = btc::Config {
                     node_addr: node_addr.to_owned(),
+                    timeout: config.timeout.to_owned(),
                 };
                 tokio::spawn(btc::handshake(config, shutdown_tx.clone()))
             })
@@ -50,6 +51,13 @@ pub async fn handshake(config: HandshakeConfig) -> Result<Vec<EventChain>, P2PEr
 #[command(version)]
 #[command(propagate_version = true)]
 pub struct HandshakeConfig {
+    #[arg(
+        long,
+        short,
+        default_value_t = 1500,
+        help = "maximum per handshake operation time in ms"
+    )]
+    pub timeout: u64,
     #[command(subcommand)]
     pub commands: Commands,
 }
