@@ -127,12 +127,16 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
         _val = ext_shutdown_shutdown_rx.recv()=>{}
     }
 
-    let (event_chain, _, _) = try_join!(
+    let (event_chain_res, write_message_res, frame_reader_res) = try_join!(
         event_chain_handle,
         write_message_handle,
         frame_reader_handle
     )?;
-    match event_chain {
+    // Check no errors happened in write and frame reader.
+    write_message_res?;
+    frame_reader_res?;
+    // Finally, check the event chain was successful and return it.
+    match event_chain_res {
         Ok(ev_chain) => Ok(ev_chain),
         Err(err) => Err(err),
     }
