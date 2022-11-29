@@ -20,7 +20,7 @@ use tokio::{
         tcp::{OwnedReadHalf, OwnedWriteHalf},
         TcpStream,
     },
-    select, signal,
+    select,
     sync::{
         broadcast,
         mpsc::{self, error::SendError, UnboundedSender},
@@ -36,10 +36,10 @@ pub struct Config {
 
 const EXPECTED_HANDSHAKE_MESSAGES: usize = 4;
 
-pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
-    // Setup shutdown broadcast channels
-    let (shutdown_tx, _) = broadcast::channel(1);
-
+pub async fn handshake(
+    config: Config,
+    shutdown_tx: broadcast::Sender<usize>,
+) -> Result<EventChain, P2PError> {
     // Spawn the event chain task.
     let (ev_tx, mut ev_rx) = mpsc::unbounded_channel();
     let mut ev_shutdown_rx = shutdown_tx.subscribe();
@@ -120,18 +120,6 @@ pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
     // Start the handshake by sending the first VERSION message
     let version_message = version_message(config.node_addr);
     msg_tx.send(version_message)?;
-
-    // Wait for external shutdown signals ctr+c ...
-    let mut ext_shutdown_shutdown_rx = shutdown_tx.subscribe();
-    select! {
-        val = signal::ctrl_c() => {
-            if val.is_ok(){
-                shutdown_tx.send(1)?;
-            }
-        }
-        // Break this select! once an internal shutdown is invoked from any of the subs systems.
-        _val = ext_shutdown_shutdown_rx.recv()=>{}
-    }
 
     let (event_chain_res, write_message_res, frame_reader_res) = try_join!(
         event_chain_handle,
