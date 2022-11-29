@@ -23,8 +23,8 @@ cargo make --makefile workflow.toml code-check
 
 ### How to run the tests
 
-A node from the [list of nodes](https://bitnodes.io/) should be elected. After that, just run:
+A node/s from the [list of nodes](https://bitnodes.io/) should be elected. After that, just run:
 
 ```bash
-TEST_NODE="<ipaddr:port>" cargo test
+TEST_NODES="<ipaddr:port> <ipaddr:port> ..." cargo test
 ```
