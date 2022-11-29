@@ -1,11 +1,12 @@
 use std::env;
 
-use p2p_handshake::p2p::{handshake, EventDirection, HandshakeConfig};
+use p2p_handshake::p2p::{handshake, Commands, EventDirection, HandshakeConfig};
 
 #[tokio::test]
 async fn it_makes_btc_handshake() {
+    let node_addr = env::var("TEST_NODE").unwrap();
     let args = HandshakeConfig {
-        node_socket: env::var("TEST_NODE").unwrap(),
+        commands: Commands::Btc { node_addr },
     };
     let ev_chain = handshake(args).await.unwrap();
 

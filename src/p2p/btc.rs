@@ -28,9 +28,13 @@ use tokio::{
     try_join,
 };
 
-use super::{Event, EventChain, EventDirection, HandshakeConfig, P2PError};
+use super::{Event, EventChain, EventDirection, P2PError};
 
-pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> {
+pub struct Config {
+    pub node_addr: String,
+}
+
+pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
     // Setup shutdown broadcast channels
     let (shutdown_tx, _) = broadcast::channel(1);
 
@@ -59,7 +63,7 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
     });
 
     // Stablish TCP connection
-    let stream = TcpStream::connect(&config.node_socket).await?;
+    let stream = TcpStream::connect(&config.node_addr).await?;
     let (mut recv_stream, mut write_stream) = stream.into_split();
 
     // Spawn the message writer task. This will take care of serialize all messages write to the socket.
@@ -112,7 +116,7 @@ pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> 
     });
 
     // Start the handshake by sending the first VERSION message
-    let version_message = version_message(config.node_socket);
+    let version_message = version_message(config.node_addr);
     msg_tx.send(version_message)?;
 
     // Wait for external shutdown signals ctr+c ...

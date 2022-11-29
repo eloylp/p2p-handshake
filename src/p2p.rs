@@ -1,6 +1,6 @@
 use std::{fmt, time::SystemTime};
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use tokio::{
     sync::{broadcast::error::RecvError, mpsc::error::SendError},
     task::JoinError,
@@ -9,14 +9,27 @@ use tokio::{
 mod btc;
 
 pub async fn handshake(config: HandshakeConfig) -> Result<EventChain, P2PError> {
-    btc::handshake(config).await
+    match &config.commands {
+        Commands::Btc { node_addr } => {
+            let config = btc::Config {
+                node_addr: node_addr.to_owned(),
+            };
+            btc::handshake(config).await
+        }
+    }
 }
 
 #[derive(Parser, Debug)]
 #[command(version)]
+#[command(propagate_version = true)]
 pub struct HandshakeConfig {
-    #[arg(short, long)]
-    pub node_socket: String,
+    #[command(subcommand)]
+    pub commands: Commands,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    Btc { node_addr: String },
 }
 
 #[derive(Debug)]
