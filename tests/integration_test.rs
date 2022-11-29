@@ -4,11 +4,12 @@ use p2p_handshake::p2p::{handshake, Commands, EventDirection, HandshakeConfig};
 
 #[tokio::test]
 async fn it_makes_btc_handshake() {
-    let node_addr = env::var("TEST_NODE").unwrap();
+    let nodes_addrs = vec![env::var("TEST_NODE").unwrap()];
     let args = HandshakeConfig {
-        commands: Commands::Btc { node_addr },
+        commands: Commands::Btc { nodes_addrs },
     };
-    let ev_chain = handshake(args).await.unwrap();
+    let ev_chains = handshake(args).await.unwrap();
+    let ev_chain = ev_chains.first().unwrap();
 
     assert!(ev_chain.len() == 4);
 
