@@ -159,7 +159,7 @@ async fn handle_message(
         }
         _ => {
             println!(
-                "\u{26A0}\u{FE0F} received message type not part of handshake: {}",
+                "\u{26A0}\u{FE0F}  received message type not part of handshake: {}",
                 msg_type
             );
             Ok(())
