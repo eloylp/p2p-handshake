@@ -9,7 +9,7 @@ async fn main() {
     match p2p::handshake(config).await {
         Ok(ev_chains) => ev_chains.iter().for_each(|ev| println!("{:?}", ev)),
         Err(err) => {
-            println!("error executing p2p handshake: {}", err);
+            println!("{}", err);
             exit(1)
         }
     }
