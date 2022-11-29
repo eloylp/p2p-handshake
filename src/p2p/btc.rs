@@ -166,7 +166,13 @@ async fn handle_message(
             msg_writer.send(verack_message())?;
             Ok(())
         }
-        _ => Ok(()),
+        _ => {
+            println!(
+                "\u{26A0}\u{FE0F} received message type not part of handshake: {}",
+                msg_type
+            );
+            Ok(())
+        }
     }
 }
 
