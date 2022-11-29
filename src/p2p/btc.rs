@@ -130,10 +130,7 @@ pub async fn handshake(
     write_message_res?;
     frame_reader_res?;
     // Finally, check the event chain was successful and return it.
-    match event_chain_res {
-        Ok(ev_chain) => Ok(ev_chain),
-        Err(err) => Err(err),
-    }
+    event_chain_res
 }
 
 async fn write_message(stream: &mut OwnedWriteHalf, message: RawNetworkMessage) -> io::Result<()> {
