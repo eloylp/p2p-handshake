@@ -11,7 +11,7 @@ async fn it_makes_btc_handshake() {
         .collect();
 
     let args = HandshakeConfig {
-        timeout: 200,
+        timeout: 500,
         commands: Commands::Btc { nodes_addrs },
     };
     let ev_chains = handshake(args).await.unwrap();
