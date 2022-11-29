@@ -49,13 +49,15 @@ pub enum Commands {
 
 #[derive(Debug)]
 pub struct EventChain {
+    id: String,
     complete: bool,
     events: Vec<Event>,
 }
 
 impl EventChain {
-    pub fn new() -> Self {
+    pub fn new(id: String) -> Self {
         EventChain {
+            id,
             events: Vec::new(),
             complete: false,
         }
@@ -84,11 +86,9 @@ impl EventChain {
     pub fn is_complete(&self) -> bool {
         self.complete
     }
-}
 
-impl Default for EventChain {
-    fn default() -> Self {
-        Self::new()
+    pub fn id(&self) -> &str {
+        self.id.as_ref()
     }
 }
 

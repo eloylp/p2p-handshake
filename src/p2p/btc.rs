@@ -42,8 +42,9 @@ pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
     let (ev_tx, mut ev_rx) = mpsc::unbounded_channel();
     let mut ev_shutdown_rx = shutdown_tx.subscribe();
     let ev_shutdown_tx = shutdown_tx.clone();
+    let event_chain_id = config.node_addr.clone();
     let event_chain_handle = tokio::spawn(async move {
-        let mut event_chain = EventChain::new();
+        let mut event_chain = EventChain::new(event_chain_id);
         loop {
             select! {
                 Some(ev) = ev_rx.recv() => {
