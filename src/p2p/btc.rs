@@ -15,11 +15,8 @@ use bitcoin::{
 };
 use bytes::{Buf, BytesMut};
 use tokio::{
-    io::{self, AsyncReadExt, AsyncWriteExt},
-    net::{
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
-        TcpStream,
-    },
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{tcp::OwnedReadHalf, TcpStream},
     select,
     sync::{
         broadcast,
@@ -77,7 +74,8 @@ pub async fn handshake(
             select! {
                 Some(msg) = msg_rx.recv() => {
                     let msg_type = msg.cmd().to_string();
-                    write_message(&mut write_stream, msg).await?;
+                    let data = serialize(&msg);
+                    write_stream.write_all(data.as_slice()).await?;
                     write_msg_ev_tx.send(Event::new(msg_type, EventDirection::OUT))?;
                 }
                 result = write_msg_shutdown_rx.recv() => {
@@ -135,12 +133,6 @@ pub async fn handshake(
     frame_reader_res?;
     // Finally, check the event chain was successful and return it.
     event_chain_res
-}
-
-async fn write_message(stream: &mut OwnedWriteHalf, message: RawNetworkMessage) -> io::Result<()> {
-    let data = serialize(&message);
-    stream.write_all(data.as_slice()).await?;
-    Ok(())
 }
 
 async fn handle_message(
