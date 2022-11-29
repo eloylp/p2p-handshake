@@ -19,6 +19,7 @@ async fn it_makes_btc_handshake() {
 }
 
 fn assert_handshake(ev_chain: &EventChain) {
+    assert!(ev_chain.is_complete() == true);
     assert!(ev_chain.len() == 4);
 
     assert!(ev_chain.get(0).unwrap().name() == "version");

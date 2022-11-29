@@ -57,6 +57,7 @@ pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
                 }
             }
             if event_chain.len() == EXPECTED_HANDSHAKE_MESSAGES {
+                event_chain.mark_as_complete();
                 ev_shutdown_tx.send(1)?;
             }
         }
@@ -130,7 +131,7 @@ pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
     let mut ext_shutdown_shutdown_rx = shutdown_tx.subscribe();
     select! {
         _ = tokio::time::sleep(Duration::from_millis(config.timeout)) => {
-            return Err(P2PError { message: "timeout !".to_string() })
+            shutdown_tx.send(1)?;
         }
         val = signal::ctrl_c() => {
             if val.is_ok(){

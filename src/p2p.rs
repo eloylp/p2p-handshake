@@ -3,10 +3,7 @@ use std::{fmt, time::SystemTime};
 use clap::{Parser, Subcommand};
 use futures::future::try_join_all;
 use tokio::{
-    sync::{
-        broadcast::{error::RecvError},
-        mpsc::error::SendError,
-    },
+    sync::{broadcast::error::RecvError, mpsc::error::SendError},
     task::{JoinError, JoinHandle},
 };
 
@@ -52,12 +49,16 @@ pub enum Commands {
 
 #[derive(Debug)]
 pub struct EventChain {
+    complete: bool,
     events: Vec<Event>,
 }
 
 impl EventChain {
     pub fn new() -> Self {
-        EventChain { events: Vec::new() }
+        EventChain {
+            events: Vec::new(),
+            complete: false,
+        }
     }
 
     pub fn add(&mut self, event: Event) {
@@ -74,6 +75,14 @@ impl EventChain {
 
     pub fn get(&self, n: usize) -> Option<&Event> {
         self.events.get(n)
+    }
+
+    pub fn mark_as_complete(&mut self) {
+        self.complete = true;
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.complete
     }
 }
 
