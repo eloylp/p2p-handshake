@@ -17,7 +17,7 @@ use bytes::{Buf, BytesMut};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{tcp::OwnedReadHalf, TcpStream},
-    select,
+    select, signal,
     sync::{
         broadcast,
         mpsc::{self, error::SendError, UnboundedSender},
@@ -34,10 +34,10 @@ pub struct Config {
 
 const EXPECTED_HANDSHAKE_MESSAGES: usize = 4;
 
-pub async fn handshake(
-    config: Config,
-    shutdown_tx: broadcast::Sender<usize>,
-) -> Result<EventChain, P2PError> {
+pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
+    // Setup shutdown broadcast channels
+    let (shutdown_tx, _) = broadcast::channel::<usize>(1);
+
     // Spawn the event chain task.
     let (ev_tx, mut ev_rx) = mpsc::unbounded_channel();
     let mut ev_shutdown_rx = shutdown_tx.subscribe();
@@ -131,6 +131,11 @@ pub async fn handshake(
     select! {
         _ = tokio::time::sleep(Duration::from_millis(config.timeout)) => {
             return Err(P2PError { message: "timeout !".to_string() })
+        }
+        val = signal::ctrl_c() => {
+            if val.is_ok(){
+                shutdown_tx.send(1)?;
+            }
         }
         // Break this select! once an internal shutdown is invoked from any of the subs systems.
         _val = ext_shutdown_shutdown_rx.recv()=>{}

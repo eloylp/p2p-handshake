@@ -3,9 +3,8 @@ use std::{fmt, time::SystemTime};
 use clap::{Parser, Subcommand};
 use futures::future::try_join_all;
 use tokio::{
-    select, signal,
     sync::{
-        broadcast::{self, error::RecvError},
+        broadcast::{error::RecvError},
         mpsc::error::SendError,
     },
     task::{JoinError, JoinHandle},
@@ -14,9 +13,6 @@ use tokio::{
 mod btc;
 
 pub async fn handshake(config: HandshakeConfig) -> Result<Vec<EventChain>, P2PError> {
-    // Setup shutdown broadcast channels
-    let (shutdown_tx, _) = broadcast::channel::<usize>(1);
-
     let join_handles: Vec<JoinHandle<Result<EventChain, P2PError>>> = match &config.commands {
         Commands::Btc { nodes_addrs } => nodes_addrs
             .iter()
@@ -25,23 +21,10 @@ pub async fn handshake(config: HandshakeConfig) -> Result<Vec<EventChain>, P2PEr
                     node_addr: node_addr.to_owned(),
                     timeout: config.timeout.to_owned(),
                 };
-                tokio::spawn(btc::handshake(config, shutdown_tx.clone()))
+                tokio::spawn(btc::handshake(config))
             })
             .collect(),
     };
-
-    // Wait for external shutdown signals ctr+c ...
-    let mut ext_shutdown_shutdown_rx = shutdown_tx.subscribe();
-    select! {
-        val = signal::ctrl_c() => {
-            if val.is_ok(){
-                shutdown_tx.send(1)?;
-            }
-        }
-        // Break this select! once an internal shutdown is invoked from any of the subs systems.
-        _val = ext_shutdown_shutdown_rx.recv()=>{}
-    }
-
     let results = try_join_all(join_handles).await?;
     let event_chains = results.into_iter().collect::<Result<Vec<_>, _>>()?;
     Ok(event_chains)
