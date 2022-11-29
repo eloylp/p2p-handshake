@@ -34,6 +34,8 @@ pub struct Config {
     pub node_addr: String,
 }
 
+const EXPECTED_HANDSHAKE_MESSAGES: usize = 4;
+
 pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
     // Setup shutdown broadcast channels
     let (shutdown_tx, _) = broadcast::channel(1);
@@ -56,7 +58,7 @@ pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
                     }
                 }
             }
-            if event_chain.len() == 4 {
+            if event_chain.len() == EXPECTED_HANDSHAKE_MESSAGES {
                 ev_shutdown_tx.send(1)?;
             }
         }
