@@ -1,6 +1,6 @@
 use std::env;
 
-use p2p_handshake::p2p::{handshake, Commands, EventDirection, HandshakeConfig};
+use p2p_handshake::p2p::{handshake, Commands, EventChain, EventDirection, HandshakeConfig};
 
 #[tokio::test]
 async fn it_makes_btc_handshake() {
@@ -12,6 +12,10 @@ async fn it_makes_btc_handshake() {
     let ev_chains = handshake(args).await.unwrap();
     let ev_chain = ev_chains.first().unwrap();
 
+    assert_handshake(ev_chain);
+}
+
+fn assert_handshake(ev_chain: &EventChain) {
     assert!(ev_chain.len() == 4);
 
     assert!(ev_chain.get(0).unwrap().name() == "version");
