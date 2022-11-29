@@ -109,10 +109,12 @@ pub async fn handshake(
                     }
                 },
                 result = frame_reader_shutdown_rx.recv() => {
-                   // Ensure all message handles succeeded before ending.
-                   futures::future::try_join_all(handles).await?;
                    return match result {
-                     Ok(_) => Ok(()),
+                     Ok(_) => {
+                       // Ensure all message handles succeeded before ending.
+                       futures::future::try_join_all(handles).await?;
+                       Ok(())
+                     },
                      Err(err) => Err(P2PError::from(err)),
                     }
                 }
