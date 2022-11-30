@@ -1,4 +1,8 @@
-use std::{fmt, time::SystemTime};
+use std::{
+    fmt::{self, Display},
+    ops::Add,
+    time::{Duration, Instant},
+};
 
 use clap::{Parser, Subcommand};
 use futures::future::try_join_all;
@@ -60,7 +64,6 @@ pub enum Commands {
     },
 }
 
-#[derive(Debug)]
 pub struct EventChain {
     id: String,
     complete: bool,
@@ -105,10 +108,37 @@ impl EventChain {
     }
 }
 
-#[derive(Debug)]
+impl Display for EventChain {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let status = if self.is_complete() {
+            "\u{2705}"
+        } else {
+            "\u{274C} \u{1F550}"
+        };
+        write!(f, "{} - {}", status, self.id())?;
+        write!(f, " || ")?;
+
+        let mut last_ev: Option<&Event> = None;
+        let mut total_time_millis = Duration::from_millis(0);
+        for ev in self.events.iter() {
+            let elapsed_time = match last_ev {
+                Some(l_ev) => ev.time().duration_since(l_ev.time()),
+                None => Duration::from_millis(0),
+            };
+            total_time_millis = total_time_millis.add(elapsed_time);
+            if last_ev.is_some() {
+                write!(f, " -- {:#?} --> ", elapsed_time)?;
+            }
+            write!(f, "{} {}", ev.name(), ev.direction())?;
+            last_ev = Some(ev);
+        }
+        write!(f, " || total time {:#?}.", total_time_millis)
+    }
+}
+
 pub struct Event {
     name: String,
-    time: SystemTime,
+    time: Instant,
     direction: EventDirection,
 }
 
@@ -117,7 +147,7 @@ impl Event {
         Event {
             name,
             direction,
-            time: SystemTime::now(),
+            time: Instant::now(),
         }
     }
 
@@ -125,7 +155,7 @@ impl Event {
         self.name.as_ref()
     }
 
-    pub fn time(&self) -> SystemTime {
+    pub fn time(&self) -> Instant {
         self.time
     }
 
@@ -134,10 +164,25 @@ impl Event {
     }
 }
 
-#[derive(Debug)]
+impl Display for Event {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}", self.name(), self.direction())
+    }
+}
+
 pub enum EventDirection {
     IN,
     OUT,
+}
+
+impl Display for EventDirection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let direction = match self {
+            EventDirection::IN => "\u{1F6EC}",
+            EventDirection::OUT => "\u{1F6EB}",
+        };
+        write!(f, "{}", direction)
+    }
 }
 
 #[derive(Debug)]
@@ -196,5 +241,76 @@ impl From<JoinError> for P2PError {
         P2PError {
             message: err.to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn event_chain_shows_nice_user_output_on_success() {
+        let mut chain = EventChain::new("192.168.1.1:8333".to_string());
+
+        let fixed_time = Instant::now();
+
+        chain.add(Event {
+            name: "version".to_string(),
+            direction: EventDirection::OUT,
+            time: fixed_time,
+        });
+
+        chain.add(Event {
+            name: "version".to_string(),
+            direction: EventDirection::IN,
+            time: fixed_time.add(Duration::from_millis(100)),
+        });
+
+        chain.add(Event {
+            name: "verack".to_string(),
+            direction: EventDirection::IN,
+            time: fixed_time.add(Duration::from_millis(120)),
+        });
+
+        chain.add(Event {
+            name: "verack".to_string(),
+            direction: EventDirection::OUT,
+            time: fixed_time.add(Duration::from_millis(140)),
+        });
+
+        chain.mark_as_complete();
+
+        let output = chain.to_string();
+
+        assert_eq!(
+            format!("\u{2705} - 192.168.1.1:8333 || version \u{1F6EB} -- 100ms --> version \u{1F6EC} -- 20ms --> verack \u{1F6EC} -- 20ms --> verack \u{1F6EB} || total time 140ms."),
+            output
+        )
+    }
+
+    #[test]
+    fn incomplete_event_chain_shows_nice_user_output() {
+        let mut chain = EventChain::new("192.168.1.1:8333".to_string());
+
+        let fixed_time = Instant::now();
+
+        chain.add(Event {
+            name: "version".to_string(),
+            direction: EventDirection::OUT,
+            time: fixed_time,
+        });
+
+        chain.add(Event {
+            name: "version".to_string(),
+            direction: EventDirection::IN,
+            time: fixed_time.add(Duration::from_millis(100)),
+        });
+
+        let output = chain.to_string();
+
+        assert_eq!(
+            format!("\u{274C} \u{1F550} - 192.168.1.1:8333 || version \u{1F6EB} -- 100ms --> version \u{1F6EC} || total time 100ms."),
+            output
+        )
     }
 }

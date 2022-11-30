@@ -7,7 +7,7 @@ use p2p_handshake::p2p;
 async fn main() {
     let config = p2p::HandshakeConfig::parse();
     match p2p::handshake(config).await {
-        Ok(ev_chains) => ev_chains.iter().for_each(|ev| println!("{:?}", ev)),
+        Ok(ev_chains) => ev_chains.iter().for_each(|ev| println!("{}", ev)),
         Err(err) => {
             println!("{}", err);
             exit(1)
