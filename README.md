@@ -9,7 +9,6 @@ A CLI tool for making handshakes to p2p nodes
 ## How to build
 
 ## How to use this tool
-
 ## Contributing
 
 ### Checking the code

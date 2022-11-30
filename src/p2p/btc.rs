@@ -168,8 +168,12 @@ async fn handle_message(
             event_publisher.send(event)?;
             Ok(())
         }
-        message::NetworkMessage::Version(_v) => {
-            let event = Event::new(msg_type, EventDirection::IN);
+        message::NetworkMessage::Version(v) => {
+            let name = format!(
+                "{} (vers: {}, user-agent: {})",
+                msg_type, v.version, v.user_agent
+            );
+            let event = Event::new(name, EventDirection::IN);
             event_publisher.send(event)?;
             msg_writer.send(verack_message())?;
             Ok(())
