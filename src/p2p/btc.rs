@@ -71,7 +71,7 @@ pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
     // Stablish TCP connection
     let stream = TcpStream::connect(&config.node_addr).await?;
     let (recv_stream, mut write_stream) = stream.into_split();
-
+    
     // Spawn the message writer task. This will take care of serialize all messages write to the socket.
     let (msg_tx, mut msg_rx) = mpsc::unbounded_channel::<RawNetworkMessage>();
     let write_msg_ev_tx = ev_tx.clone();
@@ -86,6 +86,7 @@ pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
                     write_msg_ev_tx.send(Event::new(msg_type, EventDirection::OUT))?;
                 }
                 result = write_msg_shutdown_rx.recv() => {
+                    write_stream.shutdown().await?;
                     return match result {
                         Ok(_) => Ok(()),
                         Err(err) => Err(P2PError::from(err)),
