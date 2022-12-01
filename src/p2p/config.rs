@@ -8,7 +8,7 @@ pub struct HandshakeConfig {
         long,
         short,
         default_value_t = 500,
-        help = "maximum per handshake operation time in ms"
+        help = "maximum time per handshake operation in ms"
     )]
     pub timeout: u64,
     #[command(subcommand)]
