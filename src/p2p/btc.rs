@@ -25,7 +25,10 @@ use tokio::{
     try_join,
 };
 
-use super::{Event, EventChain, EventDirection, P2PError};
+use crate::p2p::{
+    view::{Event, EventChain, EventDirection},
+    P2PError,
+};
 
 pub struct Config {
     pub node_addr: String,

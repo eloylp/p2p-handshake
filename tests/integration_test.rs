@@ -2,7 +2,8 @@ use std::env;
 
 use p2p_handshake::p2p::{
     cli::{Commands, HandshakeConfig},
-    handshake, EventDirection, HandshakeResult,
+    handshake,
+    view::{EventDirection, HandshakeResult},
 };
 
 #[tokio::test]
