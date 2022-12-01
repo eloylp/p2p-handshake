@@ -1,7 +1,7 @@
 use std::process::exit;
 
 use clap::Parser;
-use p2p_handshake::p2p::{cli::HandshakeConfig, handshake};
+use p2p_handshake::p2p::{config::HandshakeConfig, handshake};
 
 #[tokio::main]
 async fn main() {

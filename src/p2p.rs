@@ -6,12 +6,12 @@ use tokio::{
 };
 
 use self::{
-    cli::{Commands, HandshakeConfig},
+    config::{Commands, HandshakeConfig},
     view::{Event, EventChain, HandshakeResult},
 };
 
 mod btc;
-pub mod cli;
+pub mod config;
 pub mod view;
 
 pub async fn handshake(config: HandshakeConfig) -> Result<Vec<HandshakeResult>, P2PError> {

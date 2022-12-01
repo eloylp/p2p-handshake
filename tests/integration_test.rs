@@ -1,7 +1,7 @@
 use std::env;
 
 use p2p_handshake::p2p::{
-    cli::{Commands, HandshakeConfig},
+    config::{Commands, HandshakeConfig},
     handshake,
     view::{EventDirection, HandshakeResult},
 };
