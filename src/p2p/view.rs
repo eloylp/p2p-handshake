@@ -116,7 +116,7 @@ impl Display for EventChain {
             if last_ev.is_some() {
                 write!(f, " -- {:#?} --> ", elapsed_time)?;
             }
-            write!(f, "{} {}", ev.name(), ev.direction())?;
+            write!(f, "{}", ev)?;
             last_ev = Some(ev);
         }
         write!(f, " || total time {:#?}.", total_time_millis)
@@ -127,6 +127,7 @@ pub struct Event {
     name: String,
     time: Instant,
     direction: EventDirection,
+    data_pairs: Vec<(String, String)>,
 }
 
 impl Event {
@@ -135,6 +136,7 @@ impl Event {
             name,
             direction,
             time: Instant::now(),
+            data_pairs: Vec::new(),
         }
     }
 
@@ -149,11 +151,30 @@ impl Event {
     pub fn direction(&self) -> &EventDirection {
         &self.direction
     }
+
+    pub fn data_pairs(&self) -> &[(String, String)] {
+        self.data_pairs.as_ref()
+    }
+
+    pub fn set_pair(&mut self, key: String, val: String) {
+        self.data_pairs.push((key, val));
+    }
 }
 
 impl Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {}", self.name(), self.direction())
+        write!(f, "{} {}", self.name(), self.direction())?;
+        if !self.data_pairs.is_empty() {
+            let mut pairs = String::new();
+            pairs.push_str(" (");
+            self.data_pairs
+                .iter()
+                .for_each(|(k, v)| pairs.push_str(format!("{}:{} ", k, v).as_str()));
+            pairs = pairs.trim_end().to_string();
+            pairs.push(')');
+            write!(f, "{}", pairs)?;
+        }
+        Ok(())
     }
 }
 
@@ -177,33 +198,54 @@ mod tests {
     use super::*;
 
     #[test]
+    fn event_displays_correctly() {
+        let mut event = Event::new("ev_1".to_string(), EventDirection::IN);
+        event.set_pair("k1".to_string(), "v1".to_string());
+        event.set_pair("k2".to_string(), "v2".to_string());
+
+        assert_eq!(
+            format!("ev_1 {} (k1:v1 k2:v2)", EMOJI_DIRECTION_IN),
+            event.to_string()
+        )
+    }
+
+    #[test]
     fn event_chain_shows_nice_user_output_on_success() {
         let mut chain = EventChain::new("192.168.1.1:8333".to_string());
 
         let fixed_time = Instant::now();
 
-        chain.add(Event {
+        let mut event = Event {
             name: "version".to_string(),
             direction: EventDirection::OUT,
             time: fixed_time,
-        });
+            data_pairs: Vec::new(),
+        };
+
+        event.set_pair("k1".to_string(), "v1".to_string());
+        event.set_pair("k2".to_string(), "v2".to_string());
+
+        chain.add(event);
 
         chain.add(Event {
             name: "version".to_string(),
             direction: EventDirection::IN,
             time: fixed_time.add(Duration::from_millis(100)),
+            data_pairs: Vec::new(),
         });
 
         chain.add(Event {
             name: "verack".to_string(),
             direction: EventDirection::IN,
             time: fixed_time.add(Duration::from_millis(120)),
+            data_pairs: Vec::new(),
         });
 
         chain.add(Event {
             name: "verack".to_string(),
             direction: EventDirection::OUT,
             time: fixed_time.add(Duration::from_millis(140)),
+            data_pairs: Vec::new(),
         });
 
         chain.mark_as_complete();
@@ -211,7 +253,7 @@ mod tests {
         let output = chain.to_string();
 
         assert_eq!(
-            format!("{} - 192.168.1.1:8333 || version {} -- 100ms --> version {} -- 20ms --> verack {} -- 20ms --> verack {} || total time 140ms.", 
+            format!("{} - 192.168.1.1:8333 || version {} (k1:v1 k2:v2) -- 100ms --> version {} -- 20ms --> verack {} -- 20ms --> verack {} || total time 140ms.", 
             EMOJI_SUCCESS, EMOJI_DIRECTION_OUT, EMOJI_DIRECTION_IN, EMOJI_DIRECTION_IN, EMOJI_DIRECTION_OUT),
             output
         )
@@ -227,12 +269,14 @@ mod tests {
             name: "version".to_string(),
             direction: EventDirection::OUT,
             time: fixed_time,
+            data_pairs: Vec::new(),
         });
 
         chain.add(Event {
             name: "version".to_string(),
             direction: EventDirection::IN,
             time: fixed_time.add(Duration::from_millis(100)),
+            data_pairs: Vec::new(),
         });
 
         let output = chain.to_string();

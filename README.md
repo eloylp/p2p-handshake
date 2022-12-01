@@ -12,9 +12,9 @@ Full example usage and output:
 $ p2p-handshake -t 200 btc 192.168.1.10:8333 192.168.1.11:8333 192.168.1.12:8333 127.0.0.1:8333
 
 ⚠️  received message type not part of handshake: alert
-✅ - 192.168.1.10:8333 || version 🛫 -- 34.999911ms --> version (vers: 70016, user-agent: /Satoshi:23.0.0/) 🛬 -- 13.004µs --> verack 🛬 -- 121.845µs --> verack 🛫 || total time 35.13476ms.
-✅ - 192.168.1.11:8333 || version 🛫 -- 112.816965ms --> version (vers: 70016, user-agent: /Satoshi:23.0.0/) 🛬 -- 48.267µs --> verack 🛫 -- 15.745µs --> verack 🛬 || total time 112.880977ms.
-❌ 🕐 - 192.168.1.12:8333 || version 🛫 -- 217.600713ms --> version 🛬 -- 239.585µs --> verack 🛫 || total time 217.840298ms.
+✅ - 192.168.1.10:8333 || version 🛫 -- 34.999911ms --> version 🛬 (vers:70016 user-agent:/Satoshi:23.0.0/) -- 13.004µs --> verack 🛬 -- 121.845µs --> verack 🛫 || total time 35.13476ms.
+✅ - 192.168.1.11:8333 || version 🛫 -- 112.816965ms --> version 🛬 (vers:70016 user-agent:/Satoshi:23.0.0/) -- 48.267µs --> verack 🛫 -- 15.745µs --> verack 🛬 || total time 112.880977ms.
+❌ 🕐 - 192.168.1.12:8333 || version 🛫 -- 217.600713ms --> version 🛬 (vers:70016 user-agent:/Satoshi:23.0.0/) -- 239.585µs --> verack 🛫 || total time 217.840298ms.
 ❌ 127.0.0.1:8333: P2P error: Connection refused (os error 111)
 ```
 
