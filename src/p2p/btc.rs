@@ -26,7 +26,7 @@ use tokio::{
 };
 
 use crate::p2p::{
-    view::{Event, EventChain, EventDirection},
+    view::{Event, EventChain, EventDirection, EMOJI_WARNING},
     P2PError,
 };
 
@@ -183,8 +183,8 @@ async fn handle_message(
         }
         _ => {
             println!(
-                "\u{26A0}\u{FE0F}  received message type not part of handshake: {}",
-                msg_type
+                "{}  received message type not part of handshake: {}",
+                EMOJI_WARNING, msg_type
             );
             Ok(())
         }

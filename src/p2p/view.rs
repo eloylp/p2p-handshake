@@ -6,6 +6,13 @@ use std::{
 
 use super::P2PError;
 
+pub const EMOJI_SUCCESS: &str = "\u{2705}";
+pub const EMOJI_WARNING: &str = "\u{26A0}\u{FE0F}";
+pub const EMOJI_FAILURE: &str = "\u{274C}";
+pub const EMOJI_TIMEOUT: &str = "\u{274C} \u{1F550}";
+pub const EMOJI_DIRECTION_OUT: &str = "\u{1F6EB}";
+pub const EMOJI_DIRECTION_IN: &str = "\u{1F6EC}";
+
 pub struct HandshakeResult {
     id: String,
     result: Result<EventChain, P2PError>,
@@ -31,9 +38,14 @@ impl Display for HandshakeResult {
             true => {
                 write!(f, "{}", self.result().unwrap())
             }
-
             false => {
-                write!(f, "\u{274C} {}: {}", self.id, self.result().err().unwrap())
+                write!(
+                    f,
+                    "{} {}: {}",
+                    EMOJI_FAILURE,
+                    self.id,
+                    self.result().err().unwrap()
+                )
             }
         }
     }
@@ -86,9 +98,9 @@ impl EventChain {
 impl Display for EventChain {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let status = if self.is_complete() {
-            "\u{2705}"
+            EMOJI_SUCCESS
         } else {
-            "\u{274C} \u{1F550}"
+            EMOJI_TIMEOUT
         };
         write!(f, "{} - {}", status, self.id())?;
         write!(f, " || ")?;
@@ -153,8 +165,8 @@ pub enum EventDirection {
 impl Display for EventDirection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let direction = match self {
-            EventDirection::IN => "\u{1F6EC}",
-            EventDirection::OUT => "\u{1F6EB}",
+            EventDirection::IN => EMOJI_DIRECTION_IN,
+            EventDirection::OUT => EMOJI_DIRECTION_OUT,
         };
         write!(f, "{}", direction)
     }
@@ -199,7 +211,8 @@ mod tests {
         let output = chain.to_string();
 
         assert_eq!(
-            format!("\u{2705} - 192.168.1.1:8333 || version \u{1F6EB} -- 100ms --> version \u{1F6EC} -- 20ms --> verack \u{1F6EC} -- 20ms --> verack \u{1F6EB} || total time 140ms."),
+            format!("{} - 192.168.1.1:8333 || version {} -- 100ms --> version {} -- 20ms --> verack {} -- 20ms --> verack {} || total time 140ms.", 
+            EMOJI_SUCCESS, EMOJI_DIRECTION_OUT, EMOJI_DIRECTION_IN, EMOJI_DIRECTION_IN, EMOJI_DIRECTION_OUT),
             output
         )
     }
@@ -225,7 +238,10 @@ mod tests {
         let output = chain.to_string();
 
         assert_eq!(
-            format!("\u{274C} \u{1F550} - 192.168.1.1:8333 || version \u{1F6EB} -- 100ms --> version \u{1F6EC} || total time 100ms."),
+            format!(
+                "{} - 192.168.1.1:8333 || version {} -- 100ms --> version {} || total time 100ms.",
+                EMOJI_TIMEOUT, EMOJI_DIRECTION_OUT, EMOJI_DIRECTION_IN
+            ),
             output
         )
     }
@@ -246,7 +262,10 @@ mod tests {
         };
 
         assert_eq!(
-            format!("\u{2705} - 192.168.1.1:8333 || version \u{1F6EC} || total time 0ns."),
+            format!(
+                "{} - 192.168.1.1:8333 || version {} || total time 0ns.",
+                EMOJI_SUCCESS, EMOJI_DIRECTION_IN
+            ),
             hr.to_string()
         )
     }
@@ -267,7 +286,10 @@ mod tests {
         };
 
         assert_eq!(
-            format!("\u{274C} 192.168.1.1:8333: P2P error: connection refused !"),
+            format!(
+                "{} 192.168.1.1:8333: P2P error: connection refused !",
+                EMOJI_FAILURE
+            ),
             hr.to_string()
         )
     }
