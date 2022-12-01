@@ -5,7 +5,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use futures::future::try_join_all;
+
 use tokio::{
     sync::{broadcast::error::RecvError, mpsc::error::SendError},
     task::{JoinError, JoinHandle},
@@ -13,26 +13,32 @@ use tokio::{
 
 mod btc;
 
-pub async fn handshake(config: HandshakeConfig) -> Result<Vec<EventChain>, P2PError> {
-    let join_handles: Vec<JoinHandle<Result<EventChain, P2PError>>> = match &config.commands {
-        Commands::Btc {
-            nodes_addrs,
-            user_agent,
-        } => nodes_addrs
-            .iter()
-            .map(|node_addr| {
-                let config = btc::Config {
-                    node_addr: node_addr.to_owned(),
-                    timeout: config.timeout.to_owned(),
-                    user_agent: user_agent.to_owned(),
-                };
-                tokio::spawn(btc::handshake(config))
-            })
-            .collect(),
-    };
-    let results = try_join_all(join_handles).await?;
-    let event_chains = results.into_iter().collect::<Result<Vec<_>, _>>()?;
-    Ok(event_chains)
+pub async fn handshake(config: HandshakeConfig) -> Result<Vec<HandshakeResult>, P2PError> {
+    let join_handles: Vec<(String, JoinHandle<Result<EventChain, P2PError>>)> =
+        match &config.commands {
+            Commands::Btc {
+                nodes_addrs,
+                user_agent,
+            } => nodes_addrs
+                .iter()
+                .map(|node_addr| {
+                    let config = btc::Config {
+                        node_addr: node_addr.to_owned(),
+                        timeout: config.timeout.to_owned(),
+                        user_agent: user_agent.to_owned(),
+                    };
+                    let join = tokio::spawn(btc::handshake(config));
+                    (node_addr.to_owned(), join)
+                })
+                .collect(),
+        };
+
+    let mut results = Vec::new();
+    for (addr, jh) in join_handles {
+        let res = jh.await?;
+        results.push(HandshakeResult::new(addr, res))
+    }
+    Ok(results)
 }
 
 #[derive(Parser, Debug)]
@@ -62,6 +68,39 @@ pub enum Commands {
         )]
         user_agent: String,
     },
+}
+
+pub struct HandshakeResult {
+    id: String,
+    result: Result<EventChain, P2PError>,
+}
+
+impl HandshakeResult {
+    pub fn new(id: String, result: Result<EventChain, P2PError>) -> HandshakeResult {
+        HandshakeResult { id, result }
+    }
+
+    pub fn id(&self) -> &str {
+        self.id.as_ref()
+    }
+
+    pub fn result(&self) -> Result<&EventChain, &P2PError> {
+        self.result.as_ref()
+    }
+}
+
+impl Display for HandshakeResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.result.is_ok() {
+            true => {
+                write!(f, "{}", self.result().unwrap())
+            }
+
+            false => {
+                write!(f, "\u{274C} {}: {}", self.id, self.result().err().unwrap())
+            }
+        }
+    }
 }
 
 pub struct EventChain {
@@ -311,6 +350,48 @@ mod tests {
         assert_eq!(
             format!("\u{274C} \u{1F550} - 192.168.1.1:8333 || version \u{1F6EB} -- 100ms --> version \u{1F6EC} || total time 100ms."),
             output
+        )
+    }
+
+    #[test]
+    fn handshake_result_displays_event_chain_on_success() {
+        let id = "192.168.1.1:8333".to_string();
+
+        let mut event_chain = EventChain::new(id.clone());
+        event_chain.add(Event::new("version".to_string(), EventDirection::IN));
+        event_chain.mark_as_complete();
+
+        let result: Result<EventChain, P2PError> = Result::Ok(event_chain);
+
+        let hr = HandshakeResult {
+            id: id.clone(),
+            result,
+        };
+
+        assert_eq!(
+            format!("\u{2705} - 192.168.1.1:8333 || version \u{1F6EC} || total time 0ns."),
+            hr.to_string()
+        )
+    }
+
+    #[test]
+    fn handshake_result_displays_error_on_failure() {
+        let id = "192.168.1.1:8333".to_string();
+
+        let error = P2PError {
+            message: "connection refused !".to_string(),
+        };
+
+        let result: Result<EventChain, P2PError> = Result::Err(error);
+
+        let hr = HandshakeResult {
+            id: id.clone(),
+            result,
+        };
+
+        assert_eq!(
+            format!("\u{274C} 192.168.1.1:8333: P2P error: connection refused !"),
+            hr.to_string()
         )
     }
 }

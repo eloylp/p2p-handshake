@@ -1,6 +1,6 @@
 use std::env;
 
-use p2p_handshake::p2p::{handshake, Commands, EventChain, EventDirection, HandshakeConfig};
+use p2p_handshake::p2p::{handshake, Commands, EventDirection, HandshakeConfig, HandshakeResult};
 
 #[tokio::test]
 async fn it_makes_btc_handshake() {
@@ -21,7 +21,9 @@ async fn it_makes_btc_handshake() {
     ev_chains.iter().for_each(assert_handshake);
 }
 
-fn assert_handshake(ev_chain: &EventChain) {
+fn assert_handshake(result: &HandshakeResult) {
+    let ev_chain = result.result().unwrap();
+
     assert!(ev_chain.is_complete() == true);
     assert!(ev_chain.len() == 4);
 
