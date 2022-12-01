@@ -31,27 +31,25 @@ fn assert_handshake(result: &HandshakeResult) {
     assert!(ev_chain.is_complete() == true);
     assert!(ev_chain.len() == 4);
 
-    assert!(ev_chain.get(0).unwrap().name().contains("version"));
+    assert!(ev_chain.get(0).unwrap().name().eq("version"));
     assert!(matches!(
         ev_chain.get(0).unwrap().direction(),
         EventDirection::OUT
     ));
 
-    assert!(ev_chain.get(1).unwrap().name().contains("version"));
+    assert!(ev_chain.get(1).unwrap().name().eq("version"));
     assert!(matches!(
         ev_chain.get(1).unwrap().direction(),
         EventDirection::IN
     ));
 
-    assert!(ev_chain.get(2).unwrap().name().contains("verack"));
-    assert!(matches!(
-        ev_chain.get(2).unwrap().direction(),
-        EventDirection::IN
-    ));
+    // Last 2 events should be the "verack" (IN and OUT) and they can happen at any time.
+    // In order to make this tests more resilient, we just check types and that their
+    // directions are different.
+    assert!(ev_chain.get(2).unwrap().name().eq("verack"));
+    assert!(ev_chain.get(3).unwrap().name().eq("verack"));
 
-    assert!(ev_chain.get(3).unwrap().name().contains("verack"));
-    assert!(matches!(
-        ev_chain.get(3).unwrap().direction(),
-        EventDirection::OUT
-    ));
+    let direction_2 = ev_chain.get(2).unwrap().direction();
+    let direction_3 = ev_chain.get(3).unwrap().direction();
+    assert!(direction_2.to_string() != direction_3.to_string());
 }
