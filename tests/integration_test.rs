@@ -1,6 +1,9 @@
 use std::env;
 
-use p2p_handshake::p2p::{handshake, Commands, EventDirection, HandshakeConfig, HandshakeResult};
+use p2p_handshake::p2p::{
+    cli::{Commands, HandshakeConfig},
+    handshake, EventDirection, HandshakeResult,
+};
 
 #[tokio::test]
 async fn it_makes_btc_handshake() {
@@ -27,25 +30,25 @@ fn assert_handshake(result: &HandshakeResult) {
     assert!(ev_chain.is_complete() == true);
     assert!(ev_chain.len() == 4);
 
-    assert!(ev_chain.get(0).unwrap().name() == "version");
+    assert!(ev_chain.get(0).unwrap().name().contains("version"));
     assert!(matches!(
         ev_chain.get(0).unwrap().direction(),
         EventDirection::OUT
     ));
 
-    assert!(ev_chain.get(1).unwrap().name() == "version");
+    assert!(ev_chain.get(1).unwrap().name().contains("version"));
     assert!(matches!(
         ev_chain.get(1).unwrap().direction(),
         EventDirection::IN
     ));
 
-    assert!(ev_chain.get(2).unwrap().name() == "verack");
+    assert!(ev_chain.get(2).unwrap().name().contains("verack"));
     assert!(matches!(
         ev_chain.get(2).unwrap().direction(),
         EventDirection::IN
     ));
 
-    assert!(ev_chain.get(3).unwrap().name() == "verack");
+    assert!(ev_chain.get(3).unwrap().name().contains("verack"));
     assert!(matches!(
         ev_chain.get(3).unwrap().direction(),
         EventDirection::OUT

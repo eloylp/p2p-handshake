@@ -4,14 +4,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-use clap::{Parser, Subcommand};
-
 use tokio::{
     sync::{broadcast::error::RecvError, mpsc::error::SendError},
     task::{JoinError, JoinHandle},
 };
 
+use self::cli::{Commands, HandshakeConfig};
+
 mod btc;
+pub mod cli;
 
 pub async fn handshake(config: HandshakeConfig) -> Result<Vec<HandshakeResult>, P2PError> {
     let join_handles: Vec<(String, JoinHandle<Result<EventChain, P2PError>>)> =
@@ -39,35 +40,6 @@ pub async fn handshake(config: HandshakeConfig) -> Result<Vec<HandshakeResult>, 
         results.push(HandshakeResult::new(addr, res))
     }
     Ok(results)
-}
-
-#[derive(Parser, Debug)]
-#[command(version)]
-#[command(propagate_version = true)]
-pub struct HandshakeConfig {
-    #[arg(
-        long,
-        short,
-        default_value_t = 500,
-        help = "maximum per handshake operation time in ms"
-    )]
-    pub timeout: u64,
-    #[command(subcommand)]
-    pub commands: Commands,
-}
-
-#[derive(Subcommand, Debug)]
-pub enum Commands {
-    Btc {
-        nodes_addrs: Vec<String>,
-        #[arg(
-            long,
-            short,
-            help = "the user agent to be used during handshake operation",
-            default_value = "/Satoshi:23.0.0/"
-        )]
-        user_agent: String,
-    },
 }
 
 pub struct HandshakeResult {
