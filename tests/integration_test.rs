@@ -21,8 +21,11 @@ async fn it_makes_btc_handshake() {
             user_agent: "/Satoshi:23.0.0/".to_string(),
         },
     };
-    let ev_chains = handshake(config).await.unwrap();
-    ev_chains.iter().for_each(assert_handshake);
+    handshake(config)
+        .await
+        .unwrap()
+        .iter()
+        .for_each(assert_handshake);
 }
 
 fn assert_handshake(result: &HandshakeResult) {
