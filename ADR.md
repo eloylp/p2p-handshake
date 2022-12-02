@@ -8,6 +8,26 @@ The first implementation for the `p2p-handshake` project will be the [Bitcoin ha
 
 A low level, own TCP protocol message set, could be implemented by using something like [byteorder](https://github.com/BurntSushi/byteorder) crate. But in order to be more practical, lets try the [rust-bitcoin](https://github.com/rust-bitcoin/rust-bitcoin) library. It looks perfectly scoped for the use case, as it already provides the network messages types, serialization and deserialization capabilities out of the box. The only problem is that [it still doesn't support](https://github.com/rust-bitcoin/rust-bitcoin/issues/1251) an `async` interface, so we will need to workaround the limitation of only accepting the sync version of [std::io::ReadBuf](https://doc.rust-lang.org/std/io/struct.BufReader.html#) on their principal decoding method, by using its low level de-serialization functions.
 
+### Project structure
+
+The current project structure favours the placement of reusable elements as part of the `lib.rs` crate,
+while leaving the `main.rs` just for the application code. At some point in future the `lib.rs` one should
+be properly documented if finally exposed.
+
+```bash
+.
+├── src
+│   ├── lib.rs   ## The lib crate.
+│   ├── main.rs  ## The application main crate.
+│   ├── p2p      ## The P2P module and submodules.
+│   │   ├── btc.rs
+│   │   ├── config.rs
+│   │   └── view.rs
+│   └── p2p.rs
+├── tests
+│   └── integration_test.rs ## The test that reaches real nodes.
+```
+
 ### A CLI tool
 
 There are some parameters that can be tuned for both, the application execution (like timeouts) and the handshake itself, like protocol message fields values.
