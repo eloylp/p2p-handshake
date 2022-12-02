@@ -105,6 +105,8 @@ pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
     let mut frame_reader_shutdown_rx = shutdown_tx.subscribe();
     let frame_reader_msg_tx = msg_tx.clone();
     let frame_reader_handle = tokio::spawn(async move {
+        // A complete handshake is about 342 bytes. We allocate much more so we don't need
+        // to do more allocations.
         let mut frame_reader = FrameReader::new(recv_stream, 1024);
         let mut handles = Vec::new();
         loop {
