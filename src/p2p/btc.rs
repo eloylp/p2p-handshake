@@ -75,23 +75,23 @@ pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
     )
     .await??;
 
-    let (recv_stream, mut write_stream) = stream.into_split();
+    let (rx_stream, mut tx_stream) = stream.into_split();
 
     // Spawn the message writer task. This will take care of serialize all messages write to the socket.
     let (msg_tx, mut msg_rx) = mpsc::unbounded_channel::<RawNetworkMessage>();
-    let write_msg_ev_tx = ev_tx.clone();
-    let mut write_msg_shutdown_rx = shutdown_tx.subscribe();
-    let write_message_handle = tokio::spawn(async move {
+    let msg_writer_ev_tx = ev_tx.clone();
+    let mut msg_writer_shutdown_rx = shutdown_tx.subscribe();
+    let msg_writer_handle = tokio::spawn(async move {
         loop {
             select! {
                 Some(msg) = msg_rx.recv() => {
                     let msg_type = msg.cmd().to_string();
                     let data = serialize(&msg);
-                    write_stream.write_all(data.as_slice()).await?;
-                    write_msg_ev_tx.send(Event::new(msg_type, EventDirection::OUT))?;
+                    tx_stream.write_all(data.as_slice()).await?;
+                    msg_writer_ev_tx.send(Event::new(msg_type, EventDirection::OUT))?;
                 }
-                result = write_msg_shutdown_rx.recv() => {
-                    write_stream.shutdown().await?;
+                result = msg_writer_shutdown_rx.recv() => {
+                    tx_stream.shutdown().await?;
                     return match result {
                         Ok(_) => Ok(()),
                         Err(err) => Err(P2PError::from(err)),
@@ -101,28 +101,28 @@ pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
         }
     });
 
-    // Spawn the frame reader task
-    let mut frame_reader_shutdown_rx = shutdown_tx.subscribe();
-    let frame_reader_msg_tx = msg_tx.clone();
-    let frame_reader_handle = tokio::spawn(async move {
+    // Spawn the message reader task
+    let mut msg_reader_shutdown_rx = shutdown_tx.subscribe();
+    let msg_reader_msg_tx = msg_tx.clone();
+    let msg_reader_handle = tokio::spawn(async move {
         // A complete handshake is about 342 bytes. We allocate much more so we don't need
         // to do more allocations.
-        let mut frame_reader = FrameReader::new(recv_stream, 1024);
+        let mut msg_reader = MessageReader::new(rx_stream, 1024);
         let mut handles = Vec::new();
         loop {
             select! {
-                message_res = frame_reader.read_message() => {
+                message_res = msg_reader.read_message() => {
                     match message_res {
                         Ok(opt_res) => {
                             if let Some(msg) = opt_res {
-                                let handle = tokio::spawn(handle_message(msg, frame_reader_msg_tx.clone(), ev_tx.clone()));
+                                let handle = tokio::spawn(handle_message(msg, msg_reader_msg_tx.clone(), ev_tx.clone()));
                                 handles.push(handle);
                             }
                          },
                         Err(err) => return Err(err),
                     }
                 },
-                result = frame_reader_shutdown_rx.recv() => {
+                result = msg_reader_shutdown_rx.recv() => {
                    return match result {
                      Ok(_) => {
                        // Ensure all message handles succeeded before ending.
@@ -155,14 +155,11 @@ pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
         _val = ext_shutdown_shutdown_rx.recv()=>{}
     }
 
-    let (event_chain_res, write_message_res, frame_reader_res) = try_join!(
-        event_chain_handle,
-        write_message_handle,
-        frame_reader_handle
-    )?;
-    // Check no errors happened in write and frame reader.
-    write_message_res?;
-    frame_reader_res?;
+    let (event_chain_res, message_writer_res, msg_reader_res) =
+        try_join!(event_chain_handle, msg_writer_handle, msg_reader_handle)?;
+    // Check no errors happened in message reader and writer.
+    message_writer_res?;
+    msg_reader_res?;
     // Finally, check the event chain was successful and return it.
     event_chain_res
 }
@@ -197,14 +194,14 @@ async fn handle_message(
     }
 }
 
-struct FrameReader {
+struct MessageReader {
     stream: OwnedReadHalf,
     buffer: BytesMut,
 }
 
-impl FrameReader {
-    pub fn new(stream: OwnedReadHalf, buff_size: usize) -> FrameReader {
-        FrameReader {
+impl MessageReader {
+    pub fn new(stream: OwnedReadHalf, buff_size: usize) -> MessageReader {
+        MessageReader {
             stream,
             buffer: BytesMut::with_capacity(buff_size),
         }
