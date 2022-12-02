@@ -2,12 +2,6 @@
 
 Lets record here all the relevant decisions for this project. This document is intended to change over time. Git history can be used to see its progression.
 
-### The Bitcoin handshake
-
-The first implementation for the `p2p-handshake` project will be the [Bitcoin handshake](https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch08.asciidoc#network_handshake). 
-
-A low level, own TCP protocol message set, could be implemented by using something like [byteorder](https://github.com/BurntSushi/byteorder) crate. But in order to be more practical, lets try the [rust-bitcoin](https://github.com/rust-bitcoin/rust-bitcoin) library. It looks perfectly scoped for the use case, as it already provides the network messages types, serialization and deserialization capabilities out of the box. The only problem is that [it still doesn't support](https://github.com/rust-bitcoin/rust-bitcoin/issues/1251) an `async` interface, so we will need to workaround the limitation of only accepting the sync version of [std::io::ReadBuf](https://doc.rust-lang.org/std/io/struct.BufReader.html#) on their principal decoding method, by using its low level de-serialization functions.
-
 ### Project structure
 
 The current project structure favours the placement of reusable elements as part of the `lib.rs` crate,
@@ -34,7 +28,7 @@ There are some parameters that can be tuned for both, the application execution 
 
 Being a CLI will make it more ergonomic for human interaction. We are going to use the [clap](https://docs.rs/clap/latest/clap/) crate for speeding up things and to provide a proper growth vector for the project.
 
-### An async rust program  
+### An async Rust program  
 
 This tool is going to interact with the network. Thats an IO-bound task in which certain concurrency/parallelism levels can improve performance.
 
@@ -50,6 +44,12 @@ Important things to note, is that all the tasks that creates other tasks are als
 Not visible in the above diagram, but there are also service channels that will take care of gracefully shutdown of every task.
 
 Thanks to this model all the concurrent accesses to data are protected/serialized by default, so we can avoid implementing mutexes.
+
+### The Bitcoin handshake
+
+The first implementation for the `p2p-handshake` project will be the [Bitcoin handshake](https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch08.asciidoc#network_handshake). 
+
+A low level, own TCP protocol message set, could be implemented by using something like [byteorder](https://github.com/BurntSushi/byteorder) crate. But in order to be more practical, lets try the [rust-bitcoin](https://github.com/rust-bitcoin/rust-bitcoin) library. It looks perfectly scoped for the use case, as it already provides the network messages types, serialization and deserialization capabilities out of the box. The only problem is that [it still doesn't support](https://github.com/rust-bitcoin/rust-bitcoin/issues/1251) an `async` interface, so we will need to workaround the limitation of only accepting the sync version of [std::io::ReadBuf](https://doc.rust-lang.org/std/io/struct.BufReader.html#) on their principal decoding method, by using its low level de-serialization functions.
 
 ### Feedback for the user
 
@@ -72,7 +72,7 @@ The program structure invites other p2p handshake implementations to be implemen
 
 The code also [favours this](https://github.com/eloylp/p2p-handshake/blob/main/src/p2p.rs#L20), as a different p2p module could be invoked depending on the commented CLI subcommand. It just need to accomplish the current signatures.
 
-Summarizing, we are pretending to facilitate a growth vector for the project to new developers.
+Summarizing, we are pretending to facilitate a growth vector for the project to new features made by other developers.
 
 ### Processing messages
 
