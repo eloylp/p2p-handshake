@@ -68,8 +68,13 @@ pub async fn handshake(config: Config) -> Result<EventChain, P2PError> {
         }
     });
 
-    // Stablish TCP connection
-    let stream = TcpStream::connect(&config.node_addr).await?;
+    // Stablish TCP connection with timeout.
+    let stream = tokio::time::timeout(
+        Duration::from_millis(config.timeout),
+        TcpStream::connect(&config.node_addr),
+    )
+    .await??;
+
     let (recv_stream, mut write_stream) = stream.into_split();
 
     // Spawn the message writer task. This will take care of serialize all messages write to the socket.

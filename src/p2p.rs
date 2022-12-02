@@ -3,6 +3,7 @@ use std::fmt;
 use tokio::{
     sync::{broadcast::error::RecvError, mpsc::error::SendError},
     task::{JoinError, JoinHandle},
+    time::error::Elapsed,
 };
 
 use self::{
@@ -95,6 +96,14 @@ impl From<tokio::sync::broadcast::error::SendError<usize>> for P2PError {
 
 impl From<JoinError> for P2PError {
     fn from(err: JoinError) -> Self {
+        P2PError {
+            message: err.to_string(),
+        }
+    }
+}
+
+impl From<Elapsed> for P2PError {
+    fn from(err: Elapsed) -> Self {
         P2PError {
             message: err.to_string(),
         }
