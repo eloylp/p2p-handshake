@@ -32,16 +32,16 @@ Being a CLI will make it more ergonomic for human interaction. We are going to u
 
 This tool is going to interact with the network. Thats an IO-bound task in which certain concurrency/parallelism levels can improve performance.
 
-This time the decision is to adopt the well known [tokio](https://tokio.rs/) async runtime. Tokio by default will spin up as natives threads as cores for executing `tasks`, by using a work stealing algorithm. Apart from being able of switching among tasks when the current one is busy (awaiting), it will also alleviate the overhead of creating native threads for processing each network message. 
+This time the decision is to adopt the well known [tokio](https://tokio.rs/) async runtime. Tokio by default will spin up as natives threads as cores for executing `tasks`, by using a work stealing algorithm. Apart from being able of switching among tasks when the current one is busy (awaiting), it will also avoid the overhead of creating native threads for processing each network message. 
 
 This project implements an [actor model](https://en.wikipedia.org/wiki/Actor_model) that can be thought in the following way:
 
 
 ![Actor](docs/actor.drawio.svg)
 
-Important things to note, is that all the tasks that creates other tasks are also responsible about its termination and error handling. This goes in cascade for all the operations.
+An important thing to note, is that all the tasks which creates other tasks are also responsible about their termination and error handling. This goes in cascade for all the operations.
 
-Not visible in the above diagram, but there are also service channels that will take care of gracefully shutdown of every task.
+Not visible in the above diagram, but there are also a shutdown channels that will take care of gracefully shutdown of every task.
 
 Thanks to this model all the concurrent accesses to data are protected/serialized by default, so we can avoid implementing mutexes.
 
@@ -76,11 +76,11 @@ Summarizing, we are pretending to facilitate a growth vector for the project to 
 
 ### Processing messages
 
-Currently we are using a mutable growing buffer [BytesMut](https://docs.rs/bytes/latest/bytes/struct.BytesMut.html) for bringing the message bytes from the network to memory, so we can parse them accordingly. The initial buffer size its currently hardcoded to 1024 bytes, being a complete handshake around 342 bytes. So it should be enough for a complete handshake without the need of growing the buffer, so no more allocations than the initial one.
+Currently we are using a mutable growing buffer [BytesMut](https://docs.rs/bytes/latest/bytes/struct.BytesMut.html) for bringing the message bytes from the network to memory, so we can parse them accordingly. The initial buffer size its currently hardcoded to 1024 bytes, being a complete handshake around 342 bytes. It should be enough for a complete handshake without the need of growing the buffer, so no more allocations than the initial one.
 
 After a message its successfully parsed from its binary representation, its data and the buffer part it occupies are automatically discarded.
 
-Other alternative idea (not implemented here) would be to make use of a [circular buffer](https://en.wikipedia.org/wiki/Circular_buffer) implementation. That would avoid the costs of allocating more space as we go by reusing the already allocated but discarded one. So instead of discarding old parts of the buffer with the consequent future allocation, they would just be overwritten, using cursors to control what data is still valid or not. As commented, the current implementation is considered good enough for now, as we are pre-allocating all the needed memory beforehand.
+Another alternative idea (not implemented here) would be to make use of a [circular buffer](https://en.wikipedia.org/wiki/Circular_buffer) implementation. That would avoid the costs of allocating more space as we go by reusing the already allocated but discarded one. So instead of discarding old parts of the buffer with the consequent future allocation, they would just be overwritten, using cursors to control what data is still valid or not. As commented, the current implementation is considered good enough for now, as we are pre-allocating all the needed memory beforehand.
 
 ### Error handling
 
@@ -93,7 +93,7 @@ Although we use the same error structure for everything, errors have different t
 
 ### Testing
 
-The testing could be improved. Currently we need to reach real servers in order to assess the program its working correctly. That could be an impediment for local development if, as an example, one does not have internet or the target nodes are down.
+The testing could be improved. Currently we need to reach real servers in order to assess the program its working correctly. That could be an impediment for local development if, as an example, one does not have internet or the target nodes are down or misbehaving.
 
 A possible complementary solution for the above would be to build an special mock server for emulating the real ones. With such server, we could also test other edge case scenarios like network timeouts. So developers can test locally and leave the real server part only for the CI. The decision is to leave that idea for another moment, as we consider it out of the scope of this exercise.
 
