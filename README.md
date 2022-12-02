@@ -4,7 +4,7 @@
 Hello 👋 If you are interested in how this project was conceived, take a look to the [ADR document](ADR.md).
 
 # p2p-handshake 🤝
-A CLI tool for making handshakes to p2p nodes. Currently, supporting the Bitcoin network.
+A CLI tool for making handshakes to p2p nodes. Currently, supporting the [Bitcoin network handshake](https://github.com/bitcoinbook/bitcoinbook/blob/develop/ch08.asciidoc#network_handshake).
 
 Full example usage and output:
 
